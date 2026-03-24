@@ -4,7 +4,7 @@
   "description": "Free, hybrid, browser-aware web search and content extraction package for Pi coding agent",
   "type": "module",
   "license": "MIT",
-  "author": "Alberto Belleiro",
+  "author": "Albert Obelleiro",
   "homepage": "https://github.com/Albertobelleiro/pi-free-web-search#readme",
   "repository": {
     "type": "git",
