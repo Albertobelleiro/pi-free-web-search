@@ -1,9 +1,31 @@
 {
   "name": "pi-free-web-search",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Free, hybrid, browser-aware web search and content extraction package for Pi coding agent",
   "type": "module",
   "license": "MIT",
+  "author": "Alberto Belleiro",
+  "homepage": "https://github.com/Albertobelleiro/pi-free-web-search#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Albertobelleiro/pi-free-web-search.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Albertobelleiro/pi-free-web-search/issues"
+  },
+  "engines": {
+    "bun": ">=1.3.0"
+  },
+  "files": [
+    "src",
+    "extensions",
+    "skills",
+    "scripts",
+    "docs",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "keywords": [
     "pi-package",
     "pi",
