@@ -6,8 +6,6 @@ on:
     - cron: "18 4 * * 1"
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
 
 permissions: read-all
 
