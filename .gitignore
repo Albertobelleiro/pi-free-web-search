@@ -8,3 +8,6 @@ test-results
 
 # Agent memory (local-only)
 .memory/
+
+# macOS AppleDouble metadata
+._*

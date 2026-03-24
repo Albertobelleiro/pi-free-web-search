@@ -27,87 +27,204 @@ function resolveUrl(href: string | null | undefined, base: string): string | und
   }
 }
 
+function normalizeResultUrl(url: string, engine: SearchEngineId): string | undefined {
+  try {
+    const parsed = new URL(url);
+
+    if (engine === "google" && parsed.hostname.includes("google.")) {
+      if (parsed.pathname === "/url") {
+        const target = parsed.searchParams.get("q") || parsed.searchParams.get("url");
+        if (!target) return undefined;
+        const decoded = decodeURIComponent(target);
+        return /^https?:/i.test(decoded) ? decoded : undefined;
+      }
+      if (parsed.pathname.startsWith("/search") || parsed.pathname.startsWith("/preferences")) {
+        return undefined;
+      }
+    }
+
+    if (engine === "yahoo" && parsed.hostname.includes("search.yahoo.com")) {
+      const ru = parsed.searchParams.get("RU") || parsed.searchParams.get("ru");
+      if (ru) {
+        const decoded = decodeURIComponent(ru);
+        return /^https?:/i.test(decoded) ? decoded : undefined;
+      }
+    }
+
+    if (engine === "yahoo" && parsed.hostname.startsWith("r.search.yahoo.com")) {
+      const match = parsed.pathname.match(/\/RU=([^/]+)\//);
+      if (match?.[1]) {
+        const decoded = decodeURIComponent(match[1]);
+        return /^https?:/i.test(decoded) ? decoded : undefined;
+      }
+    }
+
+    if (!/^https?:/i.test(parsed.protocol)) return undefined;
+    return parsed.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function resolveResultUrl(href: string | null | undefined, base: string, engine: SearchEngineId): string | undefined {
+  const resolved = resolveUrl(href, base);
+  if (!resolved) return undefined;
+  return normalizeResultUrl(resolved, engine);
+}
+
 function parseDuckDuckGo(html: string, base: string): SearchResult[] {
   const doc = new JSDOM(html, { virtualConsole }).window.document;
-  return [...doc.querySelectorAll(".result")].map((node, index) => {
-    const link = node.querySelector("a.result__a");
-    const url = resolveUrl(link?.getAttribute("href"), base);
-    if (!url) return undefined;
-    return {
-      title: cleanText(link?.textContent || url),
-      url,
-      snippet: cleanText(node.querySelector(".result__snippet")?.textContent || ""),
-      sourceEngine: "duckduckgo" as const,
-      rank: index + 1,
-      score: 1,
-      domain: domainOf(url),
-    };
-  }).filter(Boolean) as SearchResult[];
+  return [...doc.querySelectorAll(".result")]
+    .map((node, index) => {
+      const link = node.querySelector("a.result__a");
+      const url = resolveResultUrl(link?.getAttribute("href"), base, "duckduckgo");
+      if (!url) return undefined;
+      return {
+        title: cleanText(link?.textContent || url),
+        url,
+        snippet: cleanText(node.querySelector(".result__snippet")?.textContent || ""),
+        sourceEngine: "duckduckgo" as const,
+        rank: index + 1,
+        score: 1,
+        domain: domainOf(url),
+      };
+    })
+    .filter(Boolean) as SearchResult[];
 }
 
 function parseBing(html: string, base: string): SearchResult[] {
   const doc = new JSDOM(html, { virtualConsole }).window.document;
-  return [...doc.querySelectorAll("li.b_algo")].map((node, index) => {
-    const link = node.querySelector("h2 a");
-    const url = resolveUrl(link?.getAttribute("href"), base);
-    if (!url) return undefined;
-    return {
-      title: cleanText(link?.textContent || url),
-      url,
-      snippet: cleanText(node.querySelector(".b_caption p")?.textContent || ""),
-      sourceEngine: "bing" as const,
-      rank: index + 1,
-      score: 1,
-      domain: domainOf(url),
-    };
-  }).filter(Boolean) as SearchResult[];
+  return [...doc.querySelectorAll("li.b_algo")]
+    .map((node, index) => {
+      const link = node.querySelector("h2 a");
+      const url = resolveResultUrl(link?.getAttribute("href"), base, "bing");
+      if (!url) return undefined;
+      return {
+        title: cleanText(link?.textContent || url),
+        url,
+        snippet: cleanText(node.querySelector(".b_caption p")?.textContent || ""),
+        sourceEngine: "bing" as const,
+        rank: index + 1,
+        score: 1,
+        domain: domainOf(url),
+      };
+    })
+    .filter(Boolean) as SearchResult[];
 }
 
 function parseGoogle(html: string, base: string): SearchResult[] {
   const doc = new JSDOM(html, { virtualConsole }).window.document;
-  const anchors = [...doc.querySelectorAll("a")].filter((anchor) => anchor.querySelector("h3"));
-  return anchors.map((anchor, index) => {
-    const url = resolveUrl(anchor.getAttribute("href"), base);
-    if (!url) return undefined;
-    const h3 = anchor.querySelector("h3");
-    const snippet = cleanText(anchor.parentElement?.parentElement?.textContent || "");
-    return {
-      title: cleanText(h3?.textContent || url),
-      url,
-      snippet,
-      sourceEngine: "google" as const,
-      rank: index + 1,
-      score: 1,
-      domain: domainOf(url),
-    };
-  }).filter(Boolean) as SearchResult[];
+  const headingNodes = [...doc.querySelectorAll("#search a h3, a h3")];
+
+  const results = headingNodes
+    .map((heading, index) => {
+      const anchor = heading.closest("a");
+      if (!anchor) return undefined;
+      const url = resolveResultUrl(anchor.getAttribute("href"), base, "google");
+      if (!url) return undefined;
+
+      const container = anchor.closest("div.g, div.MjjYud, div[data-hveid]") || anchor.parentElement;
+      const snippetNode = container?.querySelector(".VwiC3b, .IsZvec, span.aCOpRe, .yXK7lf");
+
+      return {
+        title: cleanText(heading.textContent || url),
+        url,
+        snippet: cleanText(snippetNode?.textContent || container?.textContent || ""),
+        sourceEngine: "google" as const,
+        rank: index + 1,
+        score: 1,
+        domain: domainOf(url),
+      };
+    })
+    .filter(Boolean) as SearchResult[];
+
+  return dedupeByUrl(results);
 }
 
 function parseYahoo(html: string, base: string): SearchResult[] {
   const doc = new JSDOM(html, { virtualConsole }).window.document;
-  return [...doc.querySelectorAll("div#web li")].map((node, index) => {
-    const link = node.querySelector("a");
-    const url = resolveUrl(link?.getAttribute("href"), base);
-    if (!url) return undefined;
-    return {
-      title: cleanText(link?.textContent || url),
-      url,
-      snippet: cleanText(node.textContent || ""),
-      sourceEngine: "yahoo" as const,
-      rank: index + 1,
-      score: 1,
-      domain: domainOf(url),
-    };
-  }).filter(Boolean) as SearchResult[];
+  const items = [...doc.querySelectorAll("#web li, ol.searchCenterMiddle li")];
+  return items
+    .map((node, index) => {
+      const link = node.querySelector("a");
+      const url = resolveResultUrl(link?.getAttribute("href"), base, "yahoo");
+      if (!url) return undefined;
+      const snippetNode = node.querySelector(".compText, p");
+      return {
+        title: cleanText(link?.textContent || url),
+        url,
+        snippet: cleanText(snippetNode?.textContent || node.textContent || ""),
+        sourceEngine: "yahoo" as const,
+        rank: index + 1,
+        score: 1,
+        domain: domainOf(url),
+      };
+    })
+    .filter(Boolean) as SearchResult[];
+}
+
+function parseBrave(html: string, base: string): SearchResult[] {
+  const doc = new JSDOM(html, { virtualConsole }).window.document;
+  const blocks = [...doc.querySelectorAll("article, div.snippet[data-type='web'], div[data-testid='result']")];
+  const parsed = blocks
+    .map((block, index) => {
+      const link = block.querySelector("a[href]");
+      const url = resolveResultUrl(link?.getAttribute("href"), base, "brave");
+      if (!url) return undefined;
+      const title = cleanText(link?.textContent || url);
+      if (!title) return undefined;
+      const snippet = cleanText(
+        block.querySelector(".snippet-description, .snippet, p")?.textContent || block.textContent || "",
+      );
+      return {
+        title,
+        url,
+        snippet,
+        sourceEngine: "brave" as const,
+        rank: index + 1,
+        score: 1,
+        domain: domainOf(url),
+      };
+    })
+    .filter(Boolean) as SearchResult[];
+
+  if (parsed.length > 0) return dedupeByUrl(parsed);
+  return parseGeneric(html, base, "brave");
+}
+
+function isInternalSearchUrl(url: string, engine: SearchEngineId): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    if (engine === "google") return hostname.includes("google.");
+    if (engine === "bing") return hostname.includes("bing.");
+    if (engine === "duckduckgo") return hostname.includes("duckduckgo.");
+    if (engine === "brave") return hostname.includes("search.brave.com");
+    if (engine === "yahoo") return hostname.includes("yahoo.");
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+function dedupeByUrl(results: SearchResult[]): SearchResult[] {
+  const seen = new Set<string>();
+  const deduped: SearchResult[] = [];
+  for (const result of results) {
+    if (seen.has(result.url)) continue;
+    seen.add(result.url);
+    deduped.push(result);
+  }
+  return deduped.map((result, index) => ({ ...result, rank: index + 1 }));
 }
 
 function parseGeneric(html: string, base: string, engine: SearchEngineId): SearchResult[] {
   const doc = new JSDOM(html, { virtualConsole }).window.document;
   const candidates = [...doc.querySelectorAll("a[href]")]
     .map((anchor, index) => {
-      const url = resolveUrl(anchor.getAttribute("href"), base);
+      const url = resolveResultUrl(anchor.getAttribute("href"), base, engine);
       const title = cleanText(anchor.textContent || "");
       if (!url || !/^https?:/.test(url) || title.length < 8) return undefined;
+      if (isInternalSearchUrl(url, engine)) return undefined;
       return {
         title,
         url,
@@ -119,16 +236,23 @@ function parseGeneric(html: string, base: string, engine: SearchEngineId): Searc
       } satisfies SearchResult;
     })
     .filter(Boolean) as SearchResult[];
-  return candidates.slice(0, 20);
+  return dedupeByUrl(candidates).slice(0, 20);
 }
 
 export function parseSearchHtml(html: string, baseUrl: string, engine: SearchEngineId): SearchResult[] {
   switch (engine) {
-    case "duckduckgo": return parseDuckDuckGo(html, baseUrl);
-    case "bing": return parseBing(html, baseUrl);
-    case "google": return parseGoogle(html, baseUrl);
-    case "yahoo": return parseYahoo(html, baseUrl);
-    default: return parseGeneric(html, baseUrl, engine);
+    case "duckduckgo":
+      return parseDuckDuckGo(html, baseUrl);
+    case "bing":
+      return parseBing(html, baseUrl);
+    case "google":
+      return parseGoogle(html, baseUrl);
+    case "yahoo":
+      return parseYahoo(html, baseUrl);
+    case "brave":
+      return parseBrave(html, baseUrl);
+    default:
+      return parseGeneric(html, baseUrl, engine);
   }
 }
 

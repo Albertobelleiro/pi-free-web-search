@@ -19,3 +19,14 @@ test("applies positive domain filters", () => {
   expect(ranked.length).toBe(1);
   expect(ranked[0].domain).toBe("bun.sh");
 });
+
+test("supports mixed include and exclude domain filters", () => {
+  const mixed: SearchResult[] = [
+    ...sample,
+    { title: "Bun in StackOverflow", url: "https://stackoverflow.com/questions/1", snippet: "Q&A", sourceEngine: "google", rank: 4, score: 0, domain: "stackoverflow.com" },
+  ];
+
+  const ranked = rerankResults(mixed, "bun docs", ["bun", "-stackoverflow.com"]);
+  expect(ranked.length).toBe(1);
+  expect(ranked[0].url).toBe("https://bun.sh/docs");
+});
