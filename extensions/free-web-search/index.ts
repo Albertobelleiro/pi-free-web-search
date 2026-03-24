@@ -4,7 +4,9 @@ import { StringEnum } from "@mariozechner/pi-ai";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { fetchContent } from "../../src/content/fetch";
+import { loadConfig } from "../../src/config";
 import { runSearch, resolveSearchContext } from "../../src/search/orchestrator";
+import { isAbortError } from "../../src/util/abort";
 
 const SearchParams = Type.Object({
   query: Type.String({ description: "Natural language search query" }),
@@ -27,6 +29,30 @@ function maybeTruncate(text: string): string {
   return `${truncation.content}\n\n[Output truncated: ${truncation.outputLines}/${truncation.totalLines} lines, ${formatSize(truncation.outputBytes)}/${formatSize(truncation.totalBytes)}]`;
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function summarizeSnippet(text: string, max = 360): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (normalized.length <= max) return normalized;
+  return `${normalized.slice(0, max - 1)}…`;
+}
+
+async function mapWithConcurrency<T, R>(items: T[], concurrency: number, worker: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const queue = items.map((item, index) => ({ item, index }));
+  const output: R[] = new Array(items.length);
+  const workers = Array.from({ length: Math.max(1, concurrency) }, async () => {
+    while (queue.length > 0) {
+      const next = queue.shift();
+      if (!next) break;
+      output[next.index] = await worker(next.item, next.index);
+    }
+  });
+  await Promise.all(workers);
+  return output;
+}
+
 export default function freeWebSearchExtension(pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     try {
@@ -34,7 +60,7 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
       const theme = ctx.ui.theme;
       ctx.ui.setStatus(
         "free-web",
-        theme.fg("accent", "◉") + theme.fg("dim", ` ${context.browser.browserLabel} · ${context.engine.label}`),
+        theme.fg("accent", "◉") + theme.fg("dim", ` ${context.browser.browserLabel} · ${context.engine.label} · ${context.mode}`),
       );
     } catch {
       ctx.ui.setStatus("free-web", ctx.ui.theme.fg("dim", "free-web ready"));
@@ -52,45 +78,99 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
       "Use domainFilter when you need docs-only or GitHub-only results.",
     ],
     parameters: SearchParams,
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const search = await runSearch(ctx.cwd, {
-        query: params.query,
-        numResults: params.numResults ?? 5,
-        engine: params.engine,
-        mode: params.mode,
-        includeContent: params.includeContent,
-        domainFilter: params.domainFilter,
-        context: params.context,
-      });
+    async execute(_toolCallId, params, signal, onUpdate, ctx) {
+      const emitProgress = (message: string, details: Record<string, unknown> = {}) => {
+        onUpdate?.({
+          content: [{ type: "text", text: message }],
+          details: { message, ...details },
+        });
+      };
 
-      const lines: string[] = [];
-      lines.push(`# Search: ${search.query}`);
-      lines.push(`Context: browser=${search.context.browser.browserLabel}, engine=${search.context.engine.label}, mode=${search.context.mode}, browserFallback=${search.usedBrowserFallback ? "yes" : "no"}`);
-      lines.push("");
-      for (const result of search.results) {
-        lines.push(`${result.rank}. ${result.title}`);
-        lines.push(`   ${result.url}`);
-        if (result.snippet) lines.push(`   ${result.snippet}`);
-      }
+      try {
+        const search = await runSearch(
+          ctx.cwd,
+          {
+            query: params.query,
+            numResults: params.numResults ?? 5,
+            engine: params.engine,
+            mode: params.mode,
+            includeContent: params.includeContent,
+            domainFilter: params.domainFilter,
+            context: params.context,
+          },
+          {
+            signal,
+            onProgress: (event) => emitProgress(event.message, { phase: event.phase, ...(event.metrics || {}) }),
+          },
+        );
 
-      if (params.includeContent) {
-        lines.push("", "## Top result content");
-        for (const result of search.results.slice(0, 3)) {
-          try {
-            const content = await fetchContent(ctx.cwd, result.url, params.mode);
-            lines.push(`### ${content.title}`);
-            lines.push(content.textExcerpt || content.markdown.slice(0, 500));
-          } catch (error) {
-            lines.push(`### ${result.title}`);
-            lines.push(`Failed to extract content: ${error instanceof Error ? error.message : String(error)}`);
+        const lines: string[] = [];
+        lines.push(`# Search: ${search.query}`);
+        lines.push(`Context: browser=${search.context.browser.browserLabel}, engine=${search.context.engine.label}, mode=${search.context.mode}, browserFallback=${search.usedBrowserFallback ? "yes" : "no"}`);
+        lines.push("");
+        for (const result of search.results) {
+          lines.push(`${result.rank}. ${result.title}`);
+          lines.push(`   ${result.url}`);
+          if (result.snippet) lines.push(`   ${summarizeSnippet(result.snippet, 240)}`);
+        }
+
+        if (params.includeContent && search.results.length > 0) {
+          const topResults = search.results.slice(0, 3);
+          const config = loadConfig(ctx.cwd);
+          const concurrency = Math.max(1, Math.min(3, config.maxContentFetchConcurrency ?? 2));
+          let completed = 0;
+
+          lines.push("", "## Top result content");
+          const contentResults = await mapWithConcurrency(topResults, concurrency, async (result, index) => {
+            emitProgress(`Reading source ${completed + 1}/${topResults.length}`, {
+              phase: "content",
+              completed,
+              total: topResults.length,
+              url: result.url,
+            });
+            try {
+              const content = await fetchContent(ctx.cwd, result.url, params.mode, {
+                signal,
+                onProgress: (progress) => emitProgress(`${index + 1}/${topResults.length}: ${progress.message}`, {
+                  phase: "content",
+                  subphase: progress.phase,
+                  completed,
+                  total: topResults.length,
+                  url: result.url,
+                }),
+              });
+              completed++;
+              return { ok: true as const, result, content };
+            } catch (error) {
+              completed++;
+              return { ok: false as const, result, error };
+            }
+          });
+
+          for (const item of contentResults) {
+            if (item.ok) {
+              lines.push(`### ${item.content.title}`);
+              lines.push(item.content.textExcerpt || item.content.markdown.slice(0, 500));
+            } else {
+              lines.push(`### ${item.result.title}`);
+              lines.push(`Failed to extract content: ${errorMessage(item.error)}`);
+            }
           }
         }
-      }
 
-      return {
-        content: [{ type: "text", text: maybeTruncate(lines.join("\n")) }],
-        details: search,
-      };
+        return {
+          content: [{ type: "text", text: maybeTruncate(lines.join("\n")) }],
+          details: search,
+        };
+      } catch (error) {
+        if (signal?.aborted || isAbortError(error)) {
+          return {
+            content: [{ type: "text", text: "Search cancelled." }],
+            details: { cancelled: true, message: "Search cancelled" },
+          };
+        }
+        throw error;
+      }
     },
     renderCall(args, theme, _context) {
       let text = theme.fg("toolTitle", theme.bold("free_web_search "));
@@ -101,8 +181,22 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
       return new Text(text, 0, 0);
     },
     renderResult(result, { expanded, isPartial }, theme, _context) {
-      if (isPartial) return new Text(theme.fg("warning", "Searching..."), 0, 0);
       const details = result.details as any;
+
+      if (isPartial) {
+        const partialMessage = details?.message || "Searching...";
+        let text = theme.fg("warning", partialMessage);
+        if (details?.phase) text += theme.fg("dim", ` · ${details.phase}`);
+        if (typeof details?.completed === "number" && typeof details?.total === "number") {
+          text += theme.fg("dim", ` · ${details.completed}/${details.total}`);
+        }
+        return new Text(text, 0, 0);
+      }
+
+      if (details?.cancelled) {
+        return new Text(theme.fg("warning", "Search cancelled"), 0, 0);
+      }
+
       const count = details?.results?.length ?? 0;
       const browser = details?.context?.browser?.browserLabel ?? "browser";
       const engine = details?.context?.engine?.label ?? "engine";
@@ -126,13 +220,31 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
     promptSnippet: "Fetch and extract readable content from a web page without requiring paid APIs.",
     promptGuidelines: ["Use this after free_web_search when you need the article content from a result URL."],
     parameters: FetchParams,
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const content = await fetchContent(ctx.cwd, params.url, params.mode);
-      const body = [`# ${content.title}`, `URL: ${content.url}`, `Browser fallback: ${content.usedBrowserFallback ? "yes" : "no"}`, "", content.markdown].join("\n");
-      return {
-        content: [{ type: "text", text: maybeTruncate(body) }],
-        details: content,
-      };
+    async execute(_toolCallId, params, signal, onUpdate, ctx) {
+      try {
+        const content = await fetchContent(ctx.cwd, params.url, params.mode, {
+          signal,
+          onProgress: (progress) => {
+            onUpdate?.({
+              content: [{ type: "text", text: progress.message }],
+              details: { phase: progress.phase, message: progress.message },
+            });
+          },
+        });
+        const body = [`# ${content.title}`, `URL: ${content.url}`, `Browser fallback: ${content.usedBrowserFallback ? "yes" : "no"}`, "", content.markdown].join("\n");
+        return {
+          content: [{ type: "text", text: maybeTruncate(body) }],
+          details: content,
+        };
+      } catch (error) {
+        if (signal?.aborted || isAbortError(error)) {
+          return {
+            content: [{ type: "text", text: "Fetch cancelled." }],
+            details: { cancelled: true, message: "Fetch cancelled" },
+          };
+        }
+        throw error;
+      }
     },
     renderCall(args, theme, _context) {
       let text = theme.fg("toolTitle", theme.bold("free_fetch_content "));
@@ -141,8 +253,14 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
       return new Text(text, 0, 0);
     },
     renderResult(result, { expanded, isPartial }, theme, _context) {
-      if (isPartial) return new Text(theme.fg("warning", "Fetching content..."), 0, 0);
       const details = result.details as any;
+      if (isPartial) {
+        const partialMessage = details?.message || "Fetching content...";
+        return new Text(theme.fg("warning", partialMessage), 0, 0);
+      }
+      if (details?.cancelled) {
+        return new Text(theme.fg("warning", "Fetch cancelled"), 0, 0);
+      }
       const title = details?.title ?? "page";
       const excerpt = details?.textExcerpt ?? "";
       let text = theme.fg("success", title);

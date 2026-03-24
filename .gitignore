@@ -5,3 +5,6 @@ coverage
 .tmp
 playwright-report
 test-results
+
+# Agent memory (local-only)
+.memory/

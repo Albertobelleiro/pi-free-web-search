@@ -54,6 +54,11 @@ export interface FreeWebSearchConfig {
   searxngBaseUrl?: string;
   httpFirst?: boolean;
   browserFallbackThreshold?: number;
+  httpTimeoutMs?: number;
+  browserNavigationTimeoutMs?: number;
+  browserResultWaitMs?: number;
+  contentMinMarkdownLength?: number;
+  maxContentFetchConcurrency?: number;
   userAgent?: string;
 }
 
