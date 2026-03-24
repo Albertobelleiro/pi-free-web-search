@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, truncateHead } from "@mariozechner/pi-coding-agent";
 import { StringEnum } from "@mariozechner/pi-ai";
+import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { fetchContent } from "../../src/content/fetch";
 import { runSearch, resolveSearchContext } from "../../src/search/orchestrator";
@@ -30,9 +31,13 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     try {
       const context = await resolveSearchContext(ctx.cwd);
-      ctx.ui.setStatus("free-web", `${context.browser.browserLabel} · ${context.engine.label}`);
+      const theme = ctx.ui.theme;
+      ctx.ui.setStatus(
+        "free-web",
+        theme.fg("accent", "◉") + theme.fg("dim", ` ${context.browser.browserLabel} · ${context.engine.label}`),
+      );
     } catch {
-      ctx.ui.setStatus("free-web", "search ready");
+      ctx.ui.setStatus("free-web", ctx.ui.theme.fg("dim", "free-web ready"));
     }
   });
 
@@ -87,6 +92,31 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
         details: search,
       };
     },
+    renderCall(args, theme, _context) {
+      let text = theme.fg("toolTitle", theme.bold("free_web_search "));
+      text += theme.fg("accent", `“${args.query}”`);
+      if (args.engine) text += theme.fg("dim", ` · ${args.engine}`);
+      if (args.mode) text += theme.fg("dim", ` · ${args.mode}`);
+      if (args.includeContent) text += theme.fg("warning", " · content");
+      return new Text(text, 0, 0);
+    },
+    renderResult(result, { expanded, isPartial }, theme, _context) {
+      if (isPartial) return new Text(theme.fg("warning", "Searching..."), 0, 0);
+      const details = result.details as any;
+      const count = details?.results?.length ?? 0;
+      const browser = details?.context?.browser?.browserLabel ?? "browser";
+      const engine = details?.context?.engine?.label ?? "engine";
+      const fallback = details?.usedBrowserFallback ? "browser fallback" : "http";
+      let text = theme.fg("success", `${count} results`);
+      text += theme.fg("dim", ` · ${browser} · ${engine} · ${fallback}`);
+      if (expanded && Array.isArray(details?.results)) {
+        for (const item of details.results.slice(0, 5)) {
+          text += `\n${theme.fg("accent", `${item.rank}. ${item.title}`)}`;
+          text += `\n${theme.fg("dim", `   ${item.url}`)}`;
+        }
+      }
+      return new Text(text, 0, 0);
+    },
   });
 
   pi.registerTool({
@@ -103,6 +133,24 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
         content: [{ type: "text", text: maybeTruncate(body) }],
         details: content,
       };
+    },
+    renderCall(args, theme, _context) {
+      let text = theme.fg("toolTitle", theme.bold("free_fetch_content "));
+      text += theme.fg("accent", args.url);
+      if (args.mode) text += theme.fg("dim", ` · ${args.mode}`);
+      return new Text(text, 0, 0);
+    },
+    renderResult(result, { expanded, isPartial }, theme, _context) {
+      if (isPartial) return new Text(theme.fg("warning", "Fetching content..."), 0, 0);
+      const details = result.details as any;
+      const title = details?.title ?? "page";
+      const excerpt = details?.textExcerpt ?? "";
+      let text = theme.fg("success", title);
+      text += theme.fg("dim", ` · ${details?.usedBrowserFallback ? "browser fallback" : "http"}`);
+      if (expanded && excerpt) {
+        text += `\n${theme.fg("dim", excerpt)}`;
+      }
+      return new Text(text, 0, 0);
     },
   });
 
