@@ -109,3 +109,50 @@ test("keeps HTTP results when browser fallback fails", async () => {
   expect(result.results.length).toBe(1);
   expect(result.results[0].url).toBe("https://bun.sh/docs");
 });
+
+test("request mode disabled prevents browser fallback", async () => {
+  let browserCalls = 0;
+
+  const result = await runSearch(
+    process.cwd(),
+    { query: "bun docs", numResults: 5, mode: "disabled" },
+    {
+      deps: deps(
+        { mode: "auto", httpFirst: true, browserFallbackThreshold: 0.9 },
+        [makeResult("https://bun.sh/docs", "Bun Docs", 1)],
+        [makeResult("https://github.com/oven-sh/bun", "Bun GitHub", 2)],
+        () => browserCalls++,
+      ),
+    },
+  );
+
+  expect(browserCalls).toBe(0);
+  expect(result.usedBrowserFallback).toBe(false);
+  expect(result.results.length).toBe(1);
+});
+
+test("engine override switches outbound search endpoint", async () => {
+  let observedUrl = "";
+  let observedEngine = "";
+
+  await runSearch(
+    process.cwd(),
+    { query: "bun docs", numResults: 3, mode: "disabled", engine: "bing" },
+    {
+      deps: {
+        loadConfig: () => ({ mode: "auto", httpFirst: true }),
+        detectBrowser: async () => browser,
+        detectSearchEngine: async () => engine,
+        searchViaHttp: async (url, engineId) => {
+          observedUrl = url;
+          observedEngine = engineId;
+          return [makeResult("https://bun.sh/docs", "Bun Docs", 1)];
+        },
+        searchViaBrowser: async () => [],
+      },
+    },
+  );
+
+  expect(observedEngine).toBe("bing");
+  expect(observedUrl.startsWith("https://www.bing.com/search?")).toBe(true);
+});

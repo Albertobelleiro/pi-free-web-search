@@ -43,6 +43,13 @@ function normalizeResultUrl(url: string, engine: SearchEngineId): string | undef
       }
     }
 
+    if (engine === "duckduckgo" && parsed.hostname.includes("duckduckgo.com") && parsed.pathname === "/l/") {
+      const target = parsed.searchParams.get("uddg");
+      if (!target) return undefined;
+      const decoded = decodeURIComponent(target);
+      return /^https?:/i.test(decoded) ? decoded : undefined;
+    }
+
     if (engine === "yahoo" && parsed.hostname.includes("search.yahoo.com")) {
       const ru = parsed.searchParams.get("RU") || parsed.searchParams.get("ru");
       if (ru) {

@@ -67,29 +67,63 @@ async function main(): Promise<void> {
 
   const engineCandidates = uniqueEngines([requestedEngine, context.engine.id, "duckduckgo", "bing", "brave"]);
 
-  let searchResult: Awaited<ReturnType<typeof runSearch>> | undefined;
-  let selectedEngine: SearchEngineId | undefined;
+  let hadAnyLiveResults = false;
+  const searchErrors: string[] = [];
+  const contentFailures: string[] = [];
 
   for (const engine of engineCandidates) {
     console.log(`[smoke] searching (${engine}): ${query}`);
-    const attempt = await runSearch(cwd, {
-      query,
-      numResults: 3,
-      includeContent: false,
-      mode: smokeMode,
-      engine,
-    });
 
-    if (attempt.results.length > 0) {
-      searchResult = attempt;
-      selectedEngine = engine;
-      break;
+    let attempt: Awaited<ReturnType<typeof runSearch>> | undefined;
+    try {
+      attempt = await runSearch(cwd, {
+        query,
+        numResults: 5,
+        includeContent: false,
+        mode: smokeMode,
+        engine,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      searchErrors.push(`${engine}: ${message}`);
+      console.log(`[smoke] search failed via ${engine}: ${message}`);
+      continue;
     }
 
-    console.log(`[smoke] no results via ${engine}`);
+    if (attempt.results.length === 0) {
+      console.log(`[smoke] no results via ${engine}`);
+      continue;
+    }
+
+    hadAnyLiveResults = true;
+    const topResult = attempt.results[0];
+    console.log(`[smoke] top result (${engine}): ${topResult.title} -> ${topResult.url}`);
+
+    for (const candidate of attempt.results) {
+      console.log(`[smoke] fetching content (${engine}): ${candidate.url}`);
+      try {
+        const content = await fetchContent(cwd, candidate.url, smokeMode);
+        if (content.markdown.length >= 50) {
+          console.log(`[smoke] content title: ${content.title}`);
+          console.log(`[smoke] content url: ${candidate.url}`);
+          console.log("[smoke] PASS");
+          return;
+        }
+        const failure = `${engine}: ${candidate.url} (too short: ${content.markdown.length})`;
+        contentFailures.push(failure);
+        console.log(`[smoke] content too short (${content.markdown.length}) for ${candidate.url}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const failure = `${engine}: ${candidate.url} (error: ${message})`;
+        contentFailures.push(failure);
+        console.log(`[smoke] content extraction failed for ${candidate.url}: ${message}`);
+      }
+    }
+
+    console.log(`[smoke] no extractable content via ${engine}, trying next engine`);
   }
 
-  if (!searchResult) {
+  if (!hadAnyLiveResults) {
     if (smokeMode === "disabled" && allowOfflineFallback) {
       console.log("[smoke] live search returned no results in disabled mode; falling back to deterministic offline smoke");
       await runOfflineSmoke();
@@ -97,44 +131,12 @@ async function main(): Promise<void> {
       return;
     }
 
-    throw new Error(`No search results returned across engines: ${engineCandidates.join(", ")}`);
+    const details = searchErrors.length > 0 ? ` | errors: ${searchErrors.join(" ; ")}` : "";
+    throw new Error(`No search results returned across engines: ${engineCandidates.join(", ")}${details}`);
   }
 
-  const topResult = searchResult.results[0];
-  console.log(`[smoke] top result (${selectedEngine || "auto"}): ${topResult.title} -> ${topResult.url}`);
-
-  let selectedContent: Awaited<ReturnType<typeof fetchContent>> | undefined;
-  let selectedUrl = "";
-
-  for (const candidate of searchResult.results) {
-    console.log(`[smoke] fetching content: ${candidate.url}`);
-    try {
-      const content = await fetchContent(cwd, candidate.url, smokeMode);
-      if (content.markdown.length >= 50) {
-        selectedContent = content;
-        selectedUrl = candidate.url;
-        break;
-      }
-      console.log(`[smoke] content too short (${content.markdown.length}) for ${candidate.url}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.log(`[smoke] content extraction failed for ${candidate.url}: ${message}`);
-    }
-  }
-
-  if (!selectedContent) {
-    if (smokeMode === "disabled" && allowOfflineFallback) {
-      console.log("[smoke] live search results had no extractable content in disabled mode; falling back to deterministic offline smoke");
-      await runOfflineSmoke();
-      console.log("[smoke] PASS (offline fallback)");
-      return;
-    }
-    throw new Error("Extracted content too short for all candidate results");
-  }
-
-  console.log(`[smoke] content title: ${selectedContent.title}`);
-  console.log(`[smoke] content url: ${selectedUrl}`);
-  console.log("[smoke] PASS");
+  const detailSuffix = contentFailures.length > 0 ? ` Details: ${contentFailures.join(" ; ")}` : "";
+  throw new Error(`Search returned URLs but none produced extractable content.${detailSuffix}`);
 }
 
 await main();
