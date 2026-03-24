@@ -2,12 +2,22 @@ import type { SearchResult } from "../types";
 
 function includesDomainFilter(url: string, filters: string[]): boolean {
   if (filters.length === 0) return true;
-  return filters.every((filter) => {
-    const trimmed = filter.trim();
-    if (!trimmed) return true;
-    if (trimmed.startsWith("-")) return !url.includes(trimmed.slice(1));
-    return url.includes(trimmed);
-  });
+
+  const normalizedUrl = url.toLowerCase();
+  const includes: string[] = [];
+  const excludes: string[] = [];
+
+  for (const filter of filters) {
+    const trimmed = filter.trim().toLowerCase();
+    if (!trimmed) continue;
+    if (trimmed.startsWith("-")) excludes.push(trimmed.slice(1));
+    else includes.push(trimmed);
+  }
+
+  const includeMatch = includes.length === 0 || includes.some((filter) => normalizedUrl.includes(filter));
+  const excludeMatch = excludes.every((filter) => !normalizedUrl.includes(filter));
+
+  return includeMatch && excludeMatch;
 }
 
 export function rerankResults(results: SearchResult[], query: string, domainFilter: string[] = []): SearchResult[] {

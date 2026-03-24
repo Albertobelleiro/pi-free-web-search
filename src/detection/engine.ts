@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { join } from "node:path";
@@ -56,8 +57,8 @@ function parseSafariPrefs(): SearchEngineDetection | undefined {
   const path = join(homedir(), "Library/Containers/com.apple.Safari/Data/Library/Preferences/com.apple.Safari.plist");
   if (!existsSync(path)) return undefined;
   try {
-    const data = Bun.spawnSync(["plutil", "-convert", "json", "-o", "-", path], { stdout: "pipe" });
-    const json = JSON.parse(Buffer.from(data.stdout).toString("utf8"));
+    const raw = execFileSync("plutil", ["-convert", "json", "-o", "-", path], { encoding: "utf8" });
+    const json = JSON.parse(raw) as Record<string, string | undefined>;
     const label = json.SearchProviderIdentifier || json.SearchProviderShortName || "google";
     const id = engineFromLabel(label);
     return { id, label, templateUrl: templateForEngine(id), source: "browser-profile" };

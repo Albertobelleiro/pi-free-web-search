@@ -30,10 +30,10 @@
     "bun-types": "latest"
   },
   "peerDependencies": {
-    "@mariozechner/pi-ai": "*",
-    "@mariozechner/pi-coding-agent": "*",
-    "@mariozechner/pi-tui": "*",
-    "@sinclair/typebox": "*"
+    "@mariozechner/pi-ai": ">=0.62.0 <1",
+    "@mariozechner/pi-coding-agent": ">=0.62.0 <1",
+    "@mariozechner/pi-tui": ">=0.62.0 <1",
+    "@sinclair/typebox": ">=0.34.0 <1"
   },
   "pi": {
     "extensions": [
