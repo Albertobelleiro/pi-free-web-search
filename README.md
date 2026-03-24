@@ -130,6 +130,8 @@ bun install
 bun run typecheck
 bun test
 bun run smoke
+# CI-safe smoke mode (no browser automation):
+FREE_WEB_SMOKE_MODE=disabled bun run smoke
 ```
 
 ## Notes
