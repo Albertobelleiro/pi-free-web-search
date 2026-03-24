@@ -103,10 +103,37 @@ async function main(): Promise<void> {
   const topResult = searchResult.results[0];
   console.log(`[smoke] top result (${selectedEngine || "auto"}): ${topResult.title} -> ${topResult.url}`);
 
-  console.log("[smoke] fetching content...");
-  const content = await fetchContent(cwd, topResult.url, smokeMode);
-  if (content.markdown.length < 50) throw new Error("Extracted content too short");
-  console.log(`[smoke] content title: ${content.title}`);
+  let selectedContent: Awaited<ReturnType<typeof fetchContent>> | undefined;
+  let selectedUrl = "";
+
+  for (const candidate of searchResult.results) {
+    console.log(`[smoke] fetching content: ${candidate.url}`);
+    try {
+      const content = await fetchContent(cwd, candidate.url, smokeMode);
+      if (content.markdown.length >= 50) {
+        selectedContent = content;
+        selectedUrl = candidate.url;
+        break;
+      }
+      console.log(`[smoke] content too short (${content.markdown.length}) for ${candidate.url}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.log(`[smoke] content extraction failed for ${candidate.url}: ${message}`);
+    }
+  }
+
+  if (!selectedContent) {
+    if (smokeMode === "disabled" && allowOfflineFallback) {
+      console.log("[smoke] live search results had no extractable content in disabled mode; falling back to deterministic offline smoke");
+      await runOfflineSmoke();
+      console.log("[smoke] PASS (offline fallback)");
+      return;
+    }
+    throw new Error("Extracted content too short for all candidate results");
+  }
+
+  console.log(`[smoke] content title: ${selectedContent.title}`);
+  console.log(`[smoke] content url: ${selectedUrl}`);
   console.log("[smoke] PASS");
 }
 
