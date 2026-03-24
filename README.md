@@ -26,6 +26,7 @@ Free, browser-aware web search and readable content extraction for [Pi coding ag
 | Tool | `free_fetch_content` | Readable content extraction from a URL with browser fallback for JS-heavy pages |
 | Command | `/free-search-info` | Shows detected browser, engine, mode, and executable |
 | Command | `/free-search-test <query>` | End-to-end smoke test from inside Pi |
+| Prompt | `/pi-search <topic>` | Short research template that steers the current session/model to use `free_web_search` and `free_fetch_content` |
 | Skill | `free-web-researcher` | Guidance for robust research flow with these tools |
 
 ---
@@ -49,6 +50,13 @@ bun run smoke
 
 ```bash
 pi install /absolute/path/to/pi-free-web-search
+```
+
+### 4) Use the prompt shortcut
+
+```text
+/pi-search exact Bun documentation for test reporters
+/pi-search study the Playwright locator docs and explain best practices
 ```
 
 ---
