@@ -263,6 +263,45 @@ export function parseSearchHtml(html: string, baseUrl: string, engine: SearchEng
   }
 }
 
+export class SearchEngineBlockedError extends Error {
+  constructor(
+    public readonly engine: SearchEngineId,
+    public readonly source: "http" | "browser",
+    public readonly reason: string,
+  ) {
+    super(`${engine} ${source} search blocked: ${reason}`);
+    this.name = "SearchEngineBlockedError";
+  }
+}
+
+export function isSearchEngineBlockedError(error: unknown): error is SearchEngineBlockedError {
+  return error instanceof SearchEngineBlockedError;
+}
+
+export function detectBlockedSearchResponse(
+  engine: SearchEngineId,
+  status: number | undefined,
+  html: string,
+): string | undefined {
+  if (status === 403 || status === 429) return `HTTP ${status}`;
+
+  const sample = html.slice(0, 12000).toLowerCase();
+  const title = html.match(/<title>(.*?)<\/title>/i)?.[1]?.toLowerCase() || "";
+  const combined = `${title} ${sample}`;
+
+  if (engine === "brave" && combined.includes("captcha - brave search")) return "captcha";
+  if (engine === "google" && combined.includes("unusual traffic")) return "unusual traffic challenge";
+  if (engine === "duckduckgo" && combined.includes("unfortunately, bots use duckduckgo too")) return "bot challenge";
+
+  if (combined.includes("captcha")) return "captcha";
+  if (combined.includes("too many requests")) return "too many requests";
+  if (combined.includes("rate limit")) return "rate limit";
+  if (combined.includes("verify you are human")) return "human verification";
+  if (combined.includes("access denied")) return "access denied";
+
+  return undefined;
+}
+
 export interface HttpSearchOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
@@ -277,11 +316,11 @@ export async function searchViaHttp(
   throwIfAborted(options.signal);
   const timeoutMs = options.timeoutMs ?? 10000;
 
-  const html = await withTimeout(
+  const response = await withTimeout(
     "HTTP search",
     timeoutMs,
     async (timeoutSignal) => {
-      const response = await fetch(url, {
+      const result = await fetch(url, {
         headers: {
           "user-agent": userAgent || "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36",
           "accept-language": "en-US,en;q=0.9",
@@ -289,11 +328,19 @@ export async function searchViaHttp(
         redirect: "follow",
         signal: timeoutSignal,
       });
-      return await response.text();
+      return {
+        status: result.status,
+        html: await result.text(),
+      };
     },
     options.signal,
   );
 
   throwIfAborted(options.signal);
-  return parseSearchHtml(html, url, engine);
+  const blockedReason = detectBlockedSearchResponse(engine, response.status, response.html);
+  if (blockedReason) {
+    throw new SearchEngineBlockedError(engine, "http", blockedReason);
+  }
+
+  return parseSearchHtml(response.html, url, engine);
 }

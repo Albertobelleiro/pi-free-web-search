@@ -82,11 +82,23 @@ export interface SearchRequest {
   context?: string;
 }
 
+export interface SearchAttempt {
+  engine: SearchEngineId;
+  httpResults: number;
+  browserResults: number;
+  finalResults: number;
+  attemptedBrowserFallback: boolean;
+  usedBrowserFallback: boolean;
+  blockedReason?: string;
+  error?: string;
+}
+
 export interface SearchResponse {
   context: EffectiveSearchContext;
   query: string;
   results: SearchResult[];
   usedBrowserFallback: boolean;
+  attempts: SearchAttempt[];
 }
 
 export interface ExtractedContent {
