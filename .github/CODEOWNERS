@@ -1,0 +1,10 @@
+# Default owners
+* @Albertobelleiro
+
+# Workflows and release process
+.github/workflows/* @Albertobelleiro
+.github/release.yml @Albertobelleiro
+
+# Core package
+src/** @Albertobelleiro
+extensions/** @Albertobelleiro
