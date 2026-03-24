@@ -1,0 +1,36 @@
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
+import type { FreeWebSearchConfig } from "./types";
+
+function safeReadJson(path: string): Record<string, unknown> {
+  try {
+    if (!existsSync(path)) return {};
+    return JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+function climbProjectConfig(cwd: string): string | undefined {
+  let current = resolve(cwd);
+  while (true) {
+    const candidate = join(current, ".pi", "free-web-search.json");
+    if (existsSync(candidate)) return candidate;
+    const parent = resolve(current, "..");
+    if (parent === current) return undefined;
+    current = parent;
+  }
+}
+
+export function loadConfig(cwd: string): FreeWebSearchConfig {
+  const globalPath = join(homedir(), ".pi", "free-web-search.json");
+  const projectPath = climbProjectConfig(cwd);
+  return {
+    mode: "auto",
+    httpFirst: true,
+    browserFallbackThreshold: 0.55,
+    ...safeReadJson(globalPath),
+    ...(projectPath ? safeReadJson(projectPath) : {}),
+  } as FreeWebSearchConfig;
+}

@@ -1,0 +1,7 @@
+node_modules
+bun.lock
+.DS_Store
+coverage
+.tmp
+playwright-report
+test-results

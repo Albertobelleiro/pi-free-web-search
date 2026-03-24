@@ -1,0 +1,46 @@
+{
+  "name": "pi-free-web-search",
+  "version": "0.1.0",
+  "description": "Free, hybrid, browser-aware web search and content extraction package for Pi coding agent",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "extension",
+    "web-search",
+    "browser-automation",
+    "research"
+  ],
+  "scripts": {
+    "typecheck": "bunx tsc --noEmit",
+    "test": "bun test",
+    "check": "bun run typecheck && bun run test",
+    "smoke": "bun run scripts/smoke-test.ts"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.5.0",
+    "jsdom": "^26.1.0",
+    "playwright": "^1.53.2",
+    "turndown": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.7",
+    "@types/turndown": "^5.0.5",
+    "bun-types": "latest"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*",
+    "@sinclair/typebox": "*"
+  },
+  "pi": {
+    "extensions": [
+      "extensions/free-web-search/index.ts"
+    ],
+    "skills": [
+      "skills/free-web-researcher"
+    ]
+  }
+}
