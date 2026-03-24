@@ -18,6 +18,13 @@ test("parses Bing HTML fixtures", () => {
   expect(results[0].snippet).toContain("Official docs");
 });
 
+test("parses DuckDuckGo redirect links", () => {
+  const html = `<html><body><div class=\"result\"><a class=\"result__a\" href=\"https://duckduckgo.com/l/?uddg=https%3A%2F%2Fbun.sh%2Fdocs&rut=abc\">Bun Documentation</a><a class=\"result__snippet\">Official Bun runtime docs.</a></div></body></html>`;
+  const results = parseSearchHtml(html, "https://duckduckgo.com/html/?q=bun", "duckduckgo");
+  expect(results.length).toBe(1);
+  expect(results[0].url).toBe("https://bun.sh/docs");
+});
+
 test("parses Google fixtures, unwraps redirect links, and ignores Google internal links", () => {
   const results = parseSearchHtml(fixtures("google.html"), "https://www.google.com/search?q=bun", "google");
   expect(results.length).toBe(2);

@@ -1,7 +1,7 @@
 import { loadConfig } from "../config";
 import { detectBrowser } from "../detection/browser";
 import { detectSearchEngine } from "../detection/engine";
-import type { EffectiveSearchContext, SearchRequest, SearchResponse } from "../types";
+import type { EffectiveSearchContext, SearchEngineDetection, SearchRequest, SearchResponse } from "../types";
 import { isAbortError, throwIfAborted } from "../util/abort";
 import { searchViaBrowser } from "./browser";
 import { buildSearchUrl } from "./engines";
@@ -50,6 +50,15 @@ function emitProgress(options: RunSearchOptions, event: SearchProgressEvent): vo
   options.onProgress?.(event);
 }
 
+function resolveEngineTemplateForOverride(detected: SearchEngineDetection, overrideId: SearchRequest["engine"], searxngBaseUrl?: string): string | undefined {
+  if (!overrideId) return detected.templateUrl;
+  if (overrideId === detected.id) return detected.templateUrl;
+  if (overrideId === "searxng" && searxngBaseUrl) {
+    return `${searxngBaseUrl.replace(/\/$/, "")}/search?q={searchTerms}`;
+  }
+  return undefined;
+}
+
 export async function resolveSearchContext(cwd: string, deps: Partial<SearchRuntimeDeps> = {}): Promise<EffectiveSearchContext> {
   const runtime = { ...defaultDeps, ...deps };
   const config = runtime.loadConfig(cwd);
@@ -71,8 +80,15 @@ export async function runSearch(cwd: string, request: SearchRequest, options: Ru
   const config = runtime.loadConfig(cwd);
   const browser = await runtime.detectBrowser(config);
   const detectedEngine = await runtime.detectSearchEngine(browser, config);
-  const engine = request.engine ? { ...detectedEngine, id: request.engine } : detectedEngine;
   const mode = request.mode || config.mode || "auto";
+  const engine = request.engine
+    ? {
+        ...detectedEngine,
+        id: request.engine,
+        label: request.engine,
+        templateUrl: resolveEngineTemplateForOverride(detectedEngine, request.engine, config.searxngBaseUrl),
+      }
+    : detectedEngine;
   const searchUrl = buildSearchUrl(engine, request.query);
 
   let httpResults: SearchResponse["results"] = [];
@@ -107,7 +123,8 @@ export async function runSearch(cwd: string, request: SearchRequest, options: Ru
 
   const threshold = config.browserFallbackThreshold ?? 0.55;
   const qualityScore = rankedHttp.length / Math.max(1, request.numResults);
-  const shouldEscalate = config.mode !== "disabled" && (rankedHttp.length === 0 || qualityScore < threshold);
+  const browserAllowed = mode !== "disabled";
+  const shouldEscalate = browserAllowed && (rankedHttp.length === 0 || qualityScore < threshold);
 
   let browserResults: SearchResponse["results"] = [];
   let usedBrowserFallback = false;
