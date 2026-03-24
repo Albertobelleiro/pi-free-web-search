@@ -1,0 +1,39 @@
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+      - duplicate
+      - invalid
+      - question
+      - wontfix
+    authors:
+      - dependabot
+      - dependabot[bot]
+  categories:
+    - title: "🚨 Breaking Changes"
+      labels:
+        - breaking-change
+        - semver-major
+    - title: "✨ Features"
+      labels:
+        - enhancement
+        - feature
+        - semver-minor
+    - title: "🐛 Fixes"
+      labels:
+        - bug
+        - fix
+    - title: "🧪 Tests & Quality"
+      labels:
+        - test
+        - quality
+        - ci
+    - title: "📝 Documentation"
+      labels:
+        - documentation
+        - docs
+    - title: "🔧 Maintenance"
+      labels:
+        - chore
+        - dependencies
+        - "*"
