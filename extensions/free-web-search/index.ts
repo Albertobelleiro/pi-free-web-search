@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, truncateHead } from "@mariozechner/pi-coding-agent";
+import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, keyHint, truncateHead } from "@mariozechner/pi-coding-agent";
 import { StringEnum } from "@mariozechner/pi-ai";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
@@ -39,14 +39,19 @@ function summarizeSnippet(text: string, max = 360): string {
   return `${normalized.slice(0, max - 1)}…`;
 }
 
+function getTextComponent(lastComponent: unknown): Text {
+  return lastComponent instanceof Text ? lastComponent : new Text("", 0, 0);
+}
+
 async function mapWithConcurrency<T, R>(items: T[], concurrency: number, worker: (item: T, index: number) => Promise<R>): Promise<R[]> {
-  const queue = items.map((item, index) => ({ item, index }));
   const output: R[] = new Array(items.length);
+  let cursor = 0;
   const workers = Array.from({ length: Math.max(1, concurrency) }, async () => {
-    while (queue.length > 0) {
-      const next = queue.shift();
-      if (!next) break;
-      output[next.index] = await worker(next.item, next.index);
+    while (true) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= items.length) break;
+      output[index] = await worker(items[index], index);
     }
   });
   await Promise.all(workers);
@@ -119,30 +124,33 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
           const config = loadConfig(ctx.cwd);
           const concurrency = Math.max(1, Math.min(3, config.maxContentFetchConcurrency ?? 2));
           let completed = 0;
+          const total = topResults.length;
 
           lines.push("", "## Top result content");
           const contentResults = await mapWithConcurrency(topResults, concurrency, async (result, index) => {
-            emitProgress(`Reading source ${completed + 1}/${topResults.length}`, {
+            emitProgress(`Reading source ${index + 1}/${total}`, {
               phase: "content",
               completed,
-              total: topResults.length,
+              total,
               url: result.url,
             });
             try {
               const content = await fetchContent(ctx.cwd, result.url, params.mode, {
                 signal,
-                onProgress: (progress) => emitProgress(`${index + 1}/${topResults.length}: ${progress.message}`, {
+                onProgress: (progress) => emitProgress(`${index + 1}/${total}: ${progress.message}`, {
                   phase: "content",
                   subphase: progress.phase,
                   completed,
-                  total: topResults.length,
+                  total,
                   url: result.url,
                 }),
               });
-              completed++;
+              completed += 1;
+              emitProgress(`Read ${completed}/${total} sources`, { phase: "content", completed, total, url: result.url });
               return { ok: true as const, result, content };
             } catch (error) {
-              completed++;
+              completed += 1;
+              emitProgress(`Read ${completed}/${total} sources`, { phase: "content", completed, total, url: result.url });
               return { ok: false as const, result, error };
             }
           });
@@ -172,16 +180,19 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
         throw error;
       }
     },
-    renderCall(args, theme, _context) {
+    renderCall(args, theme, context) {
+      const textComponent = getTextComponent(context.lastComponent);
       let text = theme.fg("toolTitle", theme.bold("free_web_search "));
-      text += theme.fg("accent", `“${args.query}”`);
+      text += theme.fg("accent", `“${summarizeSnippet(args.query, 96)}”`);
       if (args.engine) text += theme.fg("dim", ` · ${args.engine}`);
       if (args.mode) text += theme.fg("dim", ` · ${args.mode}`);
       if (args.includeContent) text += theme.fg("warning", " · content");
-      return new Text(text, 0, 0);
+      textComponent.setText(text);
+      return textComponent;
     },
-    renderResult(result, { expanded, isPartial }, theme, _context) {
+    renderResult(result, { expanded, isPartial }, theme, context) {
       const details = result.details as any;
+      const textComponent = getTextComponent(context.lastComponent);
 
       if (isPartial) {
         const partialMessage = details?.message || "Searching...";
@@ -190,26 +201,36 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
         if (typeof details?.completed === "number" && typeof details?.total === "number") {
           text += theme.fg("dim", ` · ${details.completed}/${details.total}`);
         }
-        return new Text(text, 0, 0);
+        textComponent.setText(text);
+        return textComponent;
       }
 
       if (details?.cancelled) {
-        return new Text(theme.fg("warning", "Search cancelled"), 0, 0);
+        textComponent.setText(theme.fg("warning", "Search cancelled"));
+        return textComponent;
       }
 
       const count = details?.results?.length ?? 0;
       const browser = details?.context?.browser?.browserLabel ?? "browser";
       const engine = details?.context?.engine?.label ?? "engine";
-      const fallback = details?.usedBrowserFallback ? "browser fallback" : "http";
-      let text = theme.fg("success", `${count} results`);
-      text += theme.fg("dim", ` · ${browser} · ${engine} · ${fallback}`);
+      const fallback = details?.usedBrowserFallback ? "browser" : "http";
+      let text = theme.fg("success", `${count} result${count === 1 ? "" : "s"}`);
+      text += theme.fg("dim", ` · ${engine} · ${fallback} · ${browser}`);
+
+      if (!expanded && count > 0) {
+        text += theme.fg("muted", ` (${keyHint("app.tools.expand", "details")})`);
+      }
+
       if (expanded && Array.isArray(details?.results)) {
         for (const item of details.results.slice(0, 5)) {
           text += `\n${theme.fg("accent", `${item.rank}. ${item.title}`)}`;
           text += `\n${theme.fg("dim", `   ${item.url}`)}`;
+          if (item.snippet) text += `\n${theme.fg("muted", `   ${summarizeSnippet(item.snippet, 140)}`)}`;
         }
       }
-      return new Text(text, 0, 0);
+
+      textComponent.setText(text);
+      return textComponent;
     },
   });
 
@@ -246,29 +267,43 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
         throw error;
       }
     },
-    renderCall(args, theme, _context) {
+    renderCall(args, theme, context) {
+      const textComponent = getTextComponent(context.lastComponent);
       let text = theme.fg("toolTitle", theme.bold("free_fetch_content "));
-      text += theme.fg("accent", args.url);
+      text += theme.fg("accent", summarizeSnippet(args.url, 100));
       if (args.mode) text += theme.fg("dim", ` · ${args.mode}`);
-      return new Text(text, 0, 0);
+      textComponent.setText(text);
+      return textComponent;
     },
-    renderResult(result, { expanded, isPartial }, theme, _context) {
+    renderResult(result, { expanded, isPartial }, theme, context) {
       const details = result.details as any;
+      const textComponent = getTextComponent(context.lastComponent);
+
       if (isPartial) {
         const partialMessage = details?.message || "Fetching content...";
-        return new Text(theme.fg("warning", partialMessage), 0, 0);
+        textComponent.setText(theme.fg("warning", partialMessage));
+        return textComponent;
       }
       if (details?.cancelled) {
-        return new Text(theme.fg("warning", "Fetch cancelled"), 0, 0);
+        textComponent.setText(theme.fg("warning", "Fetch cancelled"));
+        return textComponent;
       }
+
       const title = details?.title ?? "page";
       const excerpt = details?.textExcerpt ?? "";
       let text = theme.fg("success", title);
-      text += theme.fg("dim", ` · ${details?.usedBrowserFallback ? "browser fallback" : "http"}`);
-      if (expanded && excerpt) {
-        text += `\n${theme.fg("dim", excerpt)}`;
+      text += theme.fg("dim", ` · ${details?.usedBrowserFallback ? "browser" : "http"}`);
+
+      if (!expanded && excerpt) {
+        text += theme.fg("muted", ` (${keyHint("app.tools.expand", "preview")})`);
       }
-      return new Text(text, 0, 0);
+
+      if (expanded && excerpt) {
+        text += `\n${theme.fg("dim", summarizeSnippet(excerpt, 280))}`;
+      }
+
+      textComponent.setText(text);
+      return textComponent;
     },
   });
 

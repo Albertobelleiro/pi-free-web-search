@@ -30,6 +30,11 @@ export function loadConfig(cwd: string): FreeWebSearchConfig {
     mode: "auto",
     httpFirst: true,
     browserFallbackThreshold: 0.55,
+    httpTimeoutMs: 10000,
+    browserNavigationTimeoutMs: 12000,
+    browserResultWaitMs: 700,
+    contentMinMarkdownLength: 200,
+    maxContentFetchConcurrency: 2,
     ...safeReadJson(globalPath),
     ...(projectPath ? safeReadJson(projectPath) : {}),
   } as FreeWebSearchConfig;

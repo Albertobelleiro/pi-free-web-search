@@ -101,6 +101,11 @@ Optional fields:
 - `searxngBaseUrl`
 - `httpFirst`
 - `browserFallbackThreshold`
+- `httpTimeoutMs` (default `10000`)
+- `browserNavigationTimeoutMs` (default `12000`)
+- `browserResultWaitMs` (default `700`)
+- `contentMinMarkdownLength` (default `200`)
+- `maxContentFetchConcurrency` (default `2`)
 - `userAgent`
 
 Project-local override:
@@ -131,7 +136,9 @@ bun run smoke
 
 - v0.1 focuses on normal web pages, not YouTube/PDF/GitHub-specialized flows.
 - Browser detection and search-engine detection are best-effort and can be overridden in config.
+- Search now includes explicit timeout/cancellation handling and progress streaming to avoid stuck-looking runs.
 - Safari search automation falls back to Playwright WebKit rather than controlling the Safari binary directly.
+- The package is authored and tested with Bun (`bun install`, `bun test`, `bun run check`).
 
 ## License
 
