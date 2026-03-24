@@ -1,5 +1,6 @@
 import { JSDOM, VirtualConsole } from "jsdom";
 import type { SearchEngineId, SearchResult } from "../types";
+import { throwIfAborted, withTimeout } from "../util/abort";
 
 const virtualConsole = new VirtualConsole();
 virtualConsole.on("error", () => {});
@@ -131,14 +132,37 @@ export function parseSearchHtml(html: string, baseUrl: string, engine: SearchEng
   }
 }
 
-export async function searchViaHttp(url: string, engine: SearchEngineId, userAgent?: string): Promise<SearchResult[]> {
-  const response = await fetch(url, {
-    headers: {
-      "user-agent": userAgent || "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36",
-      "accept-language": "en-US,en;q=0.9",
+export interface HttpSearchOptions {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+}
+
+export async function searchViaHttp(
+  url: string,
+  engine: SearchEngineId,
+  userAgent?: string,
+  options: HttpSearchOptions = {},
+): Promise<SearchResult[]> {
+  throwIfAborted(options.signal);
+  const timeoutMs = options.timeoutMs ?? 10000;
+
+  const html = await withTimeout(
+    "HTTP search",
+    timeoutMs,
+    async (timeoutSignal) => {
+      const response = await fetch(url, {
+        headers: {
+          "user-agent": userAgent || "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36",
+          "accept-language": "en-US,en;q=0.9",
+        },
+        redirect: "follow",
+        signal: timeoutSignal,
+      });
+      return await response.text();
     },
-    redirect: "follow",
-  });
-  const html = await response.text();
+    options.signal,
+  );
+
+  throwIfAborted(options.signal);
   return parseSearchHtml(html, url, engine);
 }
