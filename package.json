@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "typecheck": "bunx tsc --noEmit",
-    "test": "bun test",
+    "test": "bun test tests/*.test.ts",
     "check": "bun run typecheck && bun run test",
     "smoke": "bun run scripts/smoke-test.ts"
   },
