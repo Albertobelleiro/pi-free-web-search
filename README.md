@@ -68,8 +68,9 @@ pi install /absolute/path/to/pi-free-web-search
 3. Run HTTP search first.
 4. Re-rank and quality-check results.
 5. Escalate to browser automation only if needed and allowed.
-6. Merge/dedupe/rerank final results.
-7. Optionally fetch top-result content with readable extraction.
+6. If the active engine is blocked or returns zero results, retry sensible alternative engines automatically.
+7. Merge/dedupe/rerank final results.
+8. Optionally fetch top-result content with readable extraction.
 
 ---
 

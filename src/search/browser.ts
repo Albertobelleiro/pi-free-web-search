@@ -1,7 +1,7 @@
 import { chromium, firefox, webkit, type Browser, type BrowserType, type Page } from "playwright";
 import type { BrowserDetection, BrowserMode, SearchEngineId, SearchResult } from "../types";
 import { OperationAbortedError, throwIfAborted } from "../util/abort";
-import { parseSearchHtml } from "./http";
+import { detectBlockedSearchResponse, parseSearchHtml, SearchEngineBlockedError } from "./http";
 
 function browserTypeForFamily(browserFamily: BrowserDetection["browserFamily"]): BrowserType {
   if (browserFamily === "firefox") return firefox;
@@ -115,5 +115,10 @@ export async function searchViaBrowser(
   options: BrowserFetchOptions = {},
 ): Promise<SearchResult[]> {
   const html = await fetchPageHtmlViaBrowser(browser, mode, searchUrl, options);
-  return parseSearchHtml(html, searchUrl, inferEngineFromUrl(searchUrl));
+  const engine = inferEngineFromUrl(searchUrl);
+  const blockedReason = detectBlockedSearchResponse(engine, undefined, html);
+  if (blockedReason) {
+    throw new SearchEngineBlockedError(engine, "browser", blockedReason);
+  }
+  return parseSearchHtml(html, searchUrl, engine);
 }

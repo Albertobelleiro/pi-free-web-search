@@ -39,6 +39,25 @@ function summarizeSnippet(text: string, max = 360): string {
   return `${normalized.slice(0, max - 1)}…`;
 }
 
+function summarizeAttempts(attempts: Array<any> = []): string | undefined {
+  if (attempts.length === 0) return undefined;
+  return attempts
+    .map((attempt) => {
+      if (attempt?.blockedReason) return `${attempt.engine} blocked (${attempt.blockedReason})`;
+      if (attempt?.error) return `${attempt.engine} failed (${attempt.error})`;
+      return `${attempt.engine} ${attempt?.finalResults ?? 0} result(s)`;
+    })
+    .join(" -> ");
+}
+
+function fallbackLabel(details: any): string | undefined {
+  const attempts = Array.isArray(details?.attempts) ? details.attempts : [];
+  const initialEngine = attempts[0]?.engine;
+  const finalEngine = details?.context?.engine?.id;
+  if (!initialEngine || !finalEngine || initialEngine === finalEngine) return undefined;
+  return `fallback from ${initialEngine}`;
+}
+
 function getTextComponent(lastComponent: unknown): Text {
   return lastComponent instanceof Text ? lastComponent : new Text("", 0, 0);
 }
@@ -110,8 +129,13 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
         );
 
         const lines: string[] = [];
+        const attemptsSummary = summarizeAttempts(search.attempts);
+        const fallback = fallbackLabel(search);
         lines.push(`# Search: ${search.query}`);
-        lines.push(`Context: browser=${search.context.browser.browserLabel}, engine=${search.context.engine.label}, mode=${search.context.mode}, browserFallback=${search.usedBrowserFallback ? "yes" : "no"}`);
+        lines.push(`Context: browser=${search.context.browser.browserLabel}, engine=${search.context.engine.label}${fallback ? ` (${fallback})` : ""}, mode=${search.context.mode}, browserFallback=${search.usedBrowserFallback ? "yes" : "no"}`);
+        if (attemptsSummary && (search.attempts.length > 1 || search.attempts.some((attempt) => attempt.blockedReason || attempt.error))) {
+          lines.push(`Attempts: ${attemptsSummary}`);
+        }
         lines.push("");
         for (const result of search.results) {
           lines.push(`${result.rank}. ${result.title}`);
@@ -213,12 +237,19 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
       const count = details?.results?.length ?? 0;
       const browser = details?.context?.browser?.browserLabel ?? "browser";
       const engine = details?.context?.engine?.label ?? "engine";
-      const fallback = details?.usedBrowserFallback ? "browser" : "http";
+      const path = details?.usedBrowserFallback ? "browser" : "http";
+      const fallback = fallbackLabel(details);
+      const attemptsSummary = summarizeAttempts(details?.attempts);
       let text = theme.fg("success", `${count} result${count === 1 ? "" : "s"}`);
-      text += theme.fg("dim", ` · ${engine} · ${fallback} · ${browser}`);
+      text += theme.fg("dim", ` · ${engine} · ${path} · ${browser}`);
+      if (fallback) text += theme.fg("warning", ` · ${fallback}`);
 
-      if (!expanded && count > 0) {
+      if (!expanded && (count > 0 || attemptsSummary)) {
         text += theme.fg("muted", ` (${keyHint("app.tools.expand", "details")})`);
+      }
+
+      if (expanded && attemptsSummary) {
+        text += `\n${theme.fg("muted", `Attempts: ${attemptsSummary}`)}`;
       }
 
       if (expanded && Array.isArray(details?.results)) {
