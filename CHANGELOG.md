@@ -7,6 +7,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-25
+
 ### Added
 - `/pi-search` prompt template for steering the current Pi session/model to use `free_web_search` and `free_fetch_content` for documentation research.
 - `debug: true` support on `free_web_search` plus `/free-search-debug <query>` for inspecting real search attempts, block reasons, URLs, titles, and progress logs.
@@ -65,6 +67,7 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   - startup status indicator
 - Initial tests for parser, ranking, detection, and content extraction.
 
-[Unreleased]: https://github.com/Albertobelleiro/pi-free-web-search/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Albertobelleiro/pi-free-web-search/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Albertobelleiro/pi-free-web-search/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Albertobelleiro/pi-free-web-search/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Albertobelleiro/pi-free-web-search/releases/tag/v0.1.0
