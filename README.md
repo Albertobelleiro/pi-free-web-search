@@ -1,5 +1,6 @@
 # pi-free-web-search
 
+[![npm version](https://img.shields.io/npm/v/pi-free-web-search.svg)](https://www.npmjs.com/package/pi-free-web-search)
 [![CI](https://github.com/Albertobelleiro/pi-free-web-search/actions/workflows/ci.yml/badge.svg)](https://github.com/Albertobelleiro/pi-free-web-search/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
@@ -35,30 +36,38 @@ Free, browser-aware web search and readable content extraction for [Pi coding ag
 
 ## Quick start
 
-### 1) Install dependencies
+### Install into Pi
 
 ```bash
-bun install
+pi install pi-free-web-search
 ```
 
-### 2) Run checks
+That's it. The extension, tools, commands, skill, and prompt are all registered automatically.
+
+### Update
 
 ```bash
-bun run check
-bun run smoke
+pi update pi-free-web-search
 ```
 
-### 3) Install into Pi
-
-```bash
-pi install /absolute/path/to/pi-free-web-search
-```
-
-### 4) Use the prompt shortcut
+### Use the prompt shortcut
 
 ```text
 /pi-search exact Bun documentation for test reporters
 /pi-search study the Playwright locator docs and explain best practices
+```
+
+### Alternative install methods
+
+```bash
+# From GitHub directly
+pi install github:Albertobelleiro/pi-free-web-search
+
+# From a local clone (for development)
+git clone https://github.com/Albertobelleiro/pi-free-web-search.git
+cd pi-free-web-search
+bun install
+pi install .
 ```
 
 ---
