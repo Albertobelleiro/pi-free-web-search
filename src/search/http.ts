@@ -27,6 +27,14 @@ function resolveUrl(href: string | null | undefined, base: string): string | und
   }
 }
 
+function hostMatches(hostname: string, domain: string): boolean {
+  return hostname === domain || hostname.endsWith(`.${domain}`);
+}
+
+function isGoogleHost(hostname: string): boolean {
+  return /(^|\.)google\.[a-z.]+$/i.test(hostname);
+}
+
 function decodeBingRedirectTarget(value: string): string | undefined {
   try {
     const normalized = value.startsWith("a1") ? value.slice(2) : value;
@@ -41,7 +49,7 @@ function normalizeResultUrl(url: string, engine: SearchEngineId): string | undef
   try {
     const parsed = new URL(url);
 
-    if (engine === "google" && parsed.hostname.includes("google.")) {
+    if (engine === "google" && isGoogleHost(parsed.hostname.toLowerCase())) {
       if (parsed.pathname === "/url") {
         const target = parsed.searchParams.get("q") || parsed.searchParams.get("url");
         if (!target) return undefined;
@@ -53,21 +61,21 @@ function normalizeResultUrl(url: string, engine: SearchEngineId): string | undef
       }
     }
 
-    if (engine === "bing" && parsed.hostname.includes("bing.com") && parsed.pathname.startsWith("/ck/a")) {
+    if (engine === "bing" && hostMatches(parsed.hostname.toLowerCase(), "bing.com") && parsed.pathname.startsWith("/ck/a")) {
       const target = parsed.searchParams.get("u") || parsed.searchParams.get("url") || parsed.searchParams.get("redirectUrl");
       if (!target) return undefined;
       const decoded = decodeBingRedirectTarget(target) || decodeURIComponent(target);
       return /^https?:/i.test(decoded) ? decoded : undefined;
     }
 
-    if (engine === "duckduckgo" && parsed.hostname.includes("duckduckgo.com") && parsed.pathname === "/l/") {
+    if (engine === "duckduckgo" && hostMatches(parsed.hostname.toLowerCase(), "duckduckgo.com") && parsed.pathname === "/l/") {
       const target = parsed.searchParams.get("uddg");
       if (!target) return undefined;
       const decoded = decodeURIComponent(target);
       return /^https?:/i.test(decoded) ? decoded : undefined;
     }
 
-    if (engine === "yahoo" && parsed.hostname.includes("search.yahoo.com")) {
+    if (engine === "yahoo" && hostMatches(parsed.hostname.toLowerCase(), "search.yahoo.com")) {
       const ru = parsed.searchParams.get("RU") || parsed.searchParams.get("ru");
       if (ru) {
         const decoded = decodeURIComponent(ru);
@@ -75,7 +83,7 @@ function normalizeResultUrl(url: string, engine: SearchEngineId): string | undef
       }
     }
 
-    if (engine === "yahoo" && parsed.hostname.startsWith("r.search.yahoo.com")) {
+    if (engine === "yahoo" && hostMatches(parsed.hostname.toLowerCase(), "r.search.yahoo.com")) {
       const match = parsed.pathname.match(/\/RU=([^/]+)\//);
       if (match?.[1]) {
         const decoded = decodeURIComponent(match[1]);
@@ -220,12 +228,12 @@ function isInternalSearchUrl(url: string, engine: SearchEngineId): boolean {
   try {
     const parsed = new URL(url);
     const hostname = parsed.hostname.toLowerCase();
-    if (engine === "google") return hostname.includes("google.");
-    if (engine === "bing") return hostname.includes("bing.");
-    if (engine === "duckduckgo") return hostname.includes("duckduckgo.");
-    if (engine === "brave") return hostname.includes("search.brave.com");
+    if (engine === "google") return isGoogleHost(hostname);
+    if (engine === "bing") return hostMatches(hostname, "bing.com");
+    if (engine === "duckduckgo") return hostMatches(hostname, "duckduckgo.com");
+    if (engine === "brave") return hostMatches(hostname, "search.brave.com");
     if (engine === "yahoo") {
-      return hostname.endsWith("search.yahoo.com") || hostname.endsWith("video.search.yahoo.com") || hostname.includes("yahoo.");
+      return hostMatches(hostname, "search.yahoo.com") || hostMatches(hostname, "video.search.yahoo.com") || hostMatches(hostname, "yahoo.com");
     }
     return false;
   } catch {
