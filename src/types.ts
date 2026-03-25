@@ -52,13 +52,18 @@ export interface FreeWebSearchConfig {
   chromiumProfilePath?: string;
   firefoxProfilePath?: string;
   searxngBaseUrl?: string;
+  locale?: string;
+  language?: string;
   httpFirst?: boolean;
   browserFallbackThreshold?: number;
   httpTimeoutMs?: number;
   browserNavigationTimeoutMs?: number;
   browserResultWaitMs?: number;
   contentMinMarkdownLength?: number;
+  includeContentMinScore?: number;
   maxContentFetchConcurrency?: number;
+  engineHealthCooldownMs?: number;
+  engineFailureThreshold?: number;
   userAgent?: string;
 }
 
@@ -95,6 +100,7 @@ export interface SearchAttempt {
   pageTitle?: string;
   httpStatus?: number;
   error?: string;
+  durationMs?: number;
 }
 
 export interface SearchResponse {

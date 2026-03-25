@@ -1,14 +1,33 @@
 import type { BrowserDetection, FreeWebSearchConfig, SearchEngineDetection, SearchEngineId } from "../types";
 
-function templateForEngine(id: SearchEngineId, searxngBaseUrl?: string): string | undefined {
+function appendParams(baseUrl: string, params: Record<string, string | undefined>): string {
+  const url = new URL(baseUrl);
+  for (const [key, value] of Object.entries(params)) {
+    if (!value) continue;
+    url.searchParams.set(key, value);
+  }
+  return url.toString();
+}
+
+export function templateForEngine(id: SearchEngineId, config: Pick<FreeWebSearchConfig, "searxngBaseUrl" | "locale" | "language"> = {}): string | undefined {
+  const locale = config.locale;
+  const language = config.language || locale?.split("-")[0];
+
   switch (id) {
-    case "google": return "https://www.google.com/search?q={searchTerms}";
-    case "bing": return "https://www.bing.com/search?q={searchTerms}";
-    case "duckduckgo": return "https://duckduckgo.com/html/?q={searchTerms}";
-    case "brave": return "https://search.brave.com/search?q={searchTerms}";
-    case "yahoo": return "https://search.yahoo.com/search?p={searchTerms}";
-    case "searxng": return searxngBaseUrl ? `${searxngBaseUrl.replace(/\/$/, "")}/search?q={searchTerms}` : undefined;
-    default: return undefined;
+    case "google":
+      return appendParams("https://www.google.com/search?q={searchTerms}", { hl: language });
+    case "bing":
+      return appendParams("https://www.bing.com/search?q={searchTerms}", { mkt: locale });
+    case "duckduckgo":
+      return "https://duckduckgo.com/html/?q={searchTerms}";
+    case "brave":
+      return "https://search.brave.com/search?q={searchTerms}";
+    case "yahoo":
+      return appendParams("https://search.yahoo.com/search?p={searchTerms}", { hl: language });
+    case "searxng":
+      return config.searxngBaseUrl ? `${config.searxngBaseUrl.replace(/\/$/, "")}/search?q={searchTerms}` : undefined;
+    default:
+      return undefined;
   }
 }
 
@@ -22,15 +41,15 @@ export async function detectSearchEngine(_browser: BrowserDetection, config: Fre
     return {
       id: config.preferredEngine,
       label: config.preferredEngine,
-      templateUrl: templateForEngine(config.preferredEngine, config.searxngBaseUrl),
+      templateUrl: templateForEngine(config.preferredEngine, config),
       source: "config",
     };
   }
 
   return {
-    id: "duckduckgo",
-    label: "duckduckgo",
-    templateUrl: templateForEngine("duckduckgo", config.searxngBaseUrl),
+    id: "yahoo",
+    label: "yahoo",
+    templateUrl: templateForEngine("yahoo", config),
     source: "fallback",
   };
 }

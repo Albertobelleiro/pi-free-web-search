@@ -12,7 +12,7 @@ Free, browser-aware web search and readable content extraction for [Pi coding ag
 `pi-web-access` is excellent, but its search path depends on Perplexity/Gemini. `pi-free-web-search` is for teams that want:
 
 - zero paid APIs
-- browser-aware behavior for automation, while defaulting searches to DuckDuckGo
+- browser-aware behavior for automation, while defaulting searches to Yahoo and failing over across engines when needed
 - HTTP-first performance with browser fallback only when quality requires it
 - a package that feels native in Pi (tools, commands, status line, TUI rendering)
 
@@ -27,6 +27,7 @@ Free, browser-aware web search and readable content extraction for [Pi coding ag
 | Command | `/free-search-info` | Shows detected browser, engine, mode, and executable |
 | Command | `/free-search-test <query>` | End-to-end smoke test from inside Pi |
 | Command | `/free-search-debug <query>` | Runs a real search and shows detailed debug logs/attempt metadata |
+| Command | `/free-search-status` | Shows recent per-engine health, latency, failures, and cooldown state for the current session |
 | Prompt | `/pi-search <topic>` | Short research template that steers the current session/model to use `free_web_search` and `free_fetch_content` |
 | Skill | `free-web-researcher` | Guidance for robust research flow with these tools |
 
@@ -65,7 +66,7 @@ pi install /absolute/path/to/pi-free-web-search
 ## How the search pipeline works
 
 1. Detect browser context for automation.
-2. Choose the configured search engine, or DuckDuckGo by default.
+2. Choose the configured search engine, or Yahoo by default.
 3. Build search URL for the active engine.
 4. Run HTTP search first.
 5. Re-rank and quality-check results.
@@ -109,7 +110,9 @@ Create `~/.pi/free-web-search.json`:
   "mode": "auto",
   "httpFirst": true,
   "browserFallbackThreshold": 0.55,
-  "preferredEngine": "duckduckgo"
+  "preferredEngine": "yahoo",
+  "locale": "en-US",
+  "language": "en"
 }
 ```
 
@@ -125,7 +128,9 @@ Project-local override is also supported:
 |---|---|---|---|
 | `mode` | `auto \| visible \| headless \| ask \| disabled` | `auto` | Global browser execution policy (`ask` prompts before browser automation in Pi UI) |
 | `preferredBrowser` | browser family | detected | Force browser family |
-| `preferredEngine` | search engine id | `duckduckgo` | Force search engine |
+| `preferredEngine` | search engine id | `yahoo` | Force search engine |
+| `locale` | string | system locale | Locale/market hint for engines that support it (for example Bing `mkt`) |
+| `language` | string | system language | Language hint for engines that support it (for example Yahoo/Google `hl`) |
 | `searchTemplateUrl` | string | per engine | Custom search URL template |
 | `browserExecutablePath` | string | auto-resolved | Explicit browser executable |
 | `chromiumProfilePath` | string | auto | Chromium-family profile path |
@@ -137,7 +142,10 @@ Project-local override is also supported:
 | `browserNavigationTimeoutMs` | number | `12000` | Browser navigation timeout |
 | `browserResultWaitMs` | number | `700` | Additional wait for dynamic result content |
 | `contentMinMarkdownLength` | number | `200` | Minimum extraction size before browser fallback |
+| `includeContentMinScore` | number | `2` | Skip low-relevance search results when `includeContent=true` |
 | `maxContentFetchConcurrency` | number | `2` | Max parallel content fetches when `includeContent=true` |
+| `engineHealthCooldownMs` | number | `600000` | How long session engine failures remain cooled down before retry |
+| `engineFailureThreshold` | number | `2` | Consecutive failures before a session temporarily skips an engine |
 | `userAgent` | string | bundled UA | Override request UA |
 
 ---

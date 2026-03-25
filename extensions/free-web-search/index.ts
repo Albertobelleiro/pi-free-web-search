@@ -5,7 +5,7 @@ import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { fetchContent } from "../../src/content/fetch";
 import { loadConfig } from "../../src/config";
-import { runSearch, resolveSearchContext } from "../../src/search/orchestrator";
+import { getSessionEngineHealthSnapshot, runSearch, resolveSearchContext } from "../../src/search/orchestrator";
 import type { BrowserMode } from "../../src/types";
 import { isAbortError } from "../../src/util/abort";
 
@@ -101,6 +101,12 @@ function formatMetrics(metrics: Record<string, unknown> = {}): string {
   return entries.length > 0 ? ` [${entries.join(", ")}]` : "";
 }
 
+function formatDuration(durationMs?: number): string | undefined {
+  if (typeof durationMs !== "number") return undefined;
+  if (durationMs < 1000) return `${durationMs}ms`;
+  return `${(durationMs / 1000).toFixed(1)}s`;
+}
+
 function buildDebugSection(progressLog: Array<{ phase: string; message: string; metrics?: Record<string, unknown> }>, attempts: Array<any>): string[] {
   const lines: string[] = [];
   lines.push("## Debug log");
@@ -112,6 +118,7 @@ function buildDebugSection(progressLog: Array<{ phase: string; message: string; 
     for (const attempt of attempts) {
       lines.push(`- engine=${attempt.engine} searchUrl=${attempt.searchUrl}`);
       lines.push(`  httpResults=${attempt.httpResults} browserResults=${attempt.browserResults} finalResults=${attempt.finalResults} attemptedBrowserFallback=${attempt.attemptedBrowserFallback} usedBrowserFallback=${attempt.usedBrowserFallback}`);
+      if (attempt.durationMs) lines.push(`  duration=${attempt.durationMs}ms`);
       if (attempt.blockedReason) lines.push(`  blocked=${attempt.blockedSource || "unknown"} (${attempt.blockedReason})`);
       if (attempt.httpStatus) lines.push(`  httpStatus=${attempt.httpStatus}`);
       if (attempt.pageTitle) lines.push(`  pageTitle=${attempt.pageTitle}`);
@@ -229,13 +236,19 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
         }
 
         if (params.includeContent && search.results.length > 0) {
-          const topResults = search.results.slice(0, 3);
           const config = loadConfig(ctx.cwd);
+          const minScore = config.includeContentMinScore ?? 2;
+          const eligibleResults = search.results.filter((result) => result.score >= minScore);
+          const topResults = eligibleResults.slice(0, 3);
           const concurrency = Math.max(1, Math.min(3, config.maxContentFetchConcurrency ?? 2));
           let completed = 0;
           const total = topResults.length;
 
           lines.push("", "## Top result content");
+          if (topResults.length === 0) {
+            lines.push(`Skipped content fetch: no results met relevance threshold (score >= ${minScore}).`);
+          }
+
           const contentResults = await mapWithConcurrency(topResults, concurrency, async (result, index) => {
             emitProgress(`Reading source ${index + 1}/${total}`, {
               phase: "content",
@@ -346,7 +359,11 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
       if (expanded && attemptsSummary) {
         text += `\n${theme.fg("muted", `Attempts: ${attemptsSummary}`)}`;
         for (const attempt of details?.attempts || []) {
-          const extra = [attempt?.httpStatus ? `status=${attempt.httpStatus}` : "", attempt?.pageTitle ? `title=${attempt.pageTitle}` : ""]
+          const extra = [
+            attempt?.httpStatus ? `status=${attempt.httpStatus}` : "",
+            attempt?.pageTitle ? `title=${attempt.pageTitle}` : "",
+            typeof attempt?.durationMs === "number" ? `duration=${formatDuration(attempt.durationMs)}` : "",
+          ]
             .filter(Boolean)
             .join(" · ");
           if (extra) text += `\n${theme.fg("dim", `   ${attempt.engine}: ${extra}`)}`;
@@ -451,8 +468,9 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
     description: "Show detected browser and search engine for pi-free-web-search",
     handler: async (_args, ctx) => {
       const context = await resolveSearchContext(ctx.cwd);
+      const config = loadConfig(ctx.cwd);
       ctx.ui.notify(
-        `Browser: ${context.browser.browserLabel}\nEngine: ${context.engine.label}\nMode: ${context.mode}\nExecutable: ${context.browser.executablePath || "n/a"}`,
+        `Browser: ${context.browser.browserLabel}\nEngine: ${context.engine.label}\nMode: ${context.mode}\nLocale: ${config.locale || "n/a"}\nLanguage: ${config.language || "n/a"}\nExecutable: ${context.browser.executablePath || "n/a"}`,
         "info",
       );
     },
@@ -501,6 +519,40 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
         "",
         ...buildDebugSection(progressLog, search.attempts),
       ];
+
+      ctx.ui.notify(maybeTruncate(lines.join("\n")), "info");
+    },
+  });
+
+  pi.registerCommand("free-search-status", {
+    description: "Show recent per-engine health and cooldown status for this session",
+    handler: async (_args, ctx) => {
+      const snapshot = getSessionEngineHealthSnapshot();
+      if (snapshot.length === 0) {
+        ctx.ui.notify("No engine health data collected yet in this session.", "info");
+        return;
+      }
+
+      const now = Date.now();
+      const lines = ["Engine health (session):"];
+      for (const entry of snapshot) {
+        const pieces = [
+          `${formatEngineLabel(entry.engine)}:`,
+          `ok=${entry.successes}`,
+          `fail=${entry.failures}`,
+          `blocked=${entry.blocked}`,
+          `streak=${entry.consecutiveFailures}`,
+        ];
+        const avg = formatDuration(entry.avgLatencyMs);
+        const last = formatDuration(entry.lastLatencyMs);
+        if (avg) pieces.push(`avg=${avg}`);
+        if (last) pieces.push(`last=${last}`);
+        if (entry.coolingDown && entry.coolDownUntil) {
+          pieces.push(`cooldown=${Math.max(0, Math.ceil((entry.coolDownUntil - now) / 1000))}s`);
+        }
+        if (entry.lastFailureReason) pieces.push(`reason=${entry.lastFailureReason}`);
+        lines.push(`- ${pieces.join(" · ")}`);
+      }
 
       ctx.ui.notify(maybeTruncate(lines.join("\n")), "info");
     },

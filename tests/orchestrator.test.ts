@@ -1,5 +1,5 @@
-import { expect, test } from "bun:test";
-import { runSearch, type SearchRuntimeDeps } from "../src/search/orchestrator";
+import { beforeEach, expect, test } from "bun:test";
+import { getSessionEngineHealthSnapshot, resetSessionEngineHealth, runSearch, type SearchRuntimeDeps } from "../src/search/orchestrator";
 import type { BrowserDetection, FreeWebSearchConfig, SearchEngineDetection, SearchResult } from "../src/types";
 
 const browser: BrowserDetection = {
@@ -9,6 +9,10 @@ const browser: BrowserDetection = {
   browserLabel: "Google Chrome",
   source: "fallback",
 };
+
+beforeEach(() => {
+  resetSessionEngineHealth();
+});
 
 const engine: SearchEngineDetection = {
   id: "google",
@@ -286,4 +290,33 @@ test("rejects empty query", async () => {
       },
     ),
   ).rejects.toThrow("Search query must not be empty");
+});
+
+test("remembers repeated engine failures and skips cooled-down engines", async () => {
+  const observedEngines: string[] = [];
+  const runtimeDeps: SearchRuntimeDeps = {
+    loadConfig: () => ({ mode: "auto", httpFirst: true, engineFailureThreshold: 2, engineHealthCooldownMs: 60_000 }),
+    detectBrowser: async () => browser,
+    detectSearchEngine: async () => ({
+      ...engine,
+      id: "duckduckgo",
+      label: "duckduckgo",
+      templateUrl: "https://duckduckgo.com/html/?q={searchTerms}",
+    }),
+    searchViaHttp: async (_url, engineId) => {
+      observedEngines.push(engineId);
+      if (engineId === "duckduckgo") return [];
+      return [makeResult("https://bun.sh/docs", "Bun Docs", 1, 1, engineId)];
+    },
+    searchViaBrowser: async () => [],
+  };
+
+  await runSearch(process.cwd(), { query: "bun docs", numResults: 5, mode: "disabled" }, { deps: runtimeDeps });
+  await runSearch(process.cwd(), { query: "bun docs", numResults: 5, mode: "disabled" }, { deps: runtimeDeps });
+  await runSearch(process.cwd(), { query: "bun docs", numResults: 5, mode: "disabled" }, { deps: runtimeDeps });
+
+  expect(observedEngines.slice(0, 2)).toEqual(["duckduckgo", "yahoo"]);
+  expect(observedEngines.slice(2, 4)).toEqual(["duckduckgo", "yahoo"]);
+  expect(observedEngines[4]).toBe("yahoo");
+  expect(getSessionEngineHealthSnapshot().find((entry) => entry.engine === "duckduckgo")?.coolingDown).toBe(true);
 });

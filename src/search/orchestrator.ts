@@ -1,8 +1,9 @@
 import { loadConfig } from "../config";
 import { detectBrowser } from "../detection/browser";
-import { detectSearchEngine } from "../detection/engine";
+import { detectSearchEngine, templateForEngine } from "../detection/engine";
 import type {
   EffectiveSearchContext,
+  FreeWebSearchConfig,
   SearchAttempt,
   SearchEngineDetection,
   SearchEngineId,
@@ -35,6 +36,21 @@ export interface RunSearchOptions {
   deps?: Partial<SearchRuntimeDeps>;
 }
 
+export interface EngineHealthSnapshot {
+  engine: SearchEngineId;
+  successes: number;
+  failures: number;
+  blocked: number;
+  consecutiveFailures: number;
+  coolingDown: boolean;
+  coolDownUntil?: number;
+  lastFailureReason?: string;
+  lastLatencyMs?: number;
+  avgLatencyMs?: number;
+  lastSuccessAt?: number;
+  lastFailureAt?: number;
+}
+
 const defaultDeps: SearchRuntimeDeps = {
   loadConfig,
   detectBrowser,
@@ -43,7 +59,22 @@ const defaultDeps: SearchRuntimeDeps = {
   searchViaBrowser,
 };
 
-const ENGINE_FALLBACK_ORDER: SearchEngineId[] = ["duckduckgo", "brave", "yahoo", "bing", "google", "searxng"];
+const ENGINE_FALLBACK_ORDER: SearchEngineId[] = ["yahoo", "bing", "duckduckgo", "brave", "google", "searxng"];
+
+interface EngineHealthRecord {
+  engine: SearchEngineId;
+  successes: number;
+  failures: number;
+  blocked: number;
+  consecutiveFailures: number;
+  coolDownUntil?: number;
+  lastFailureReason?: string;
+  lastLatencyMs?: number;
+  totalLatencyMs: number;
+  samples: number;
+  lastSuccessAt?: number;
+  lastFailureAt?: number;
+}
 
 interface EngineRunResult {
   engine: SearchEngineDetection;
@@ -58,7 +89,10 @@ interface EngineRunResult {
   error?: string;
   httpResults: number;
   browserResults: number;
+  durationMs: number;
 }
+
+const sessionEngineHealth = new Map<SearchEngineId, EngineHealthRecord>();
 
 function modeForBrowser(mode: SearchRequest["mode"]): "headless" | "visible" {
   return mode === "visible" ? "visible" : "headless";
@@ -74,21 +108,92 @@ function emitProgress(options: RunSearchOptions, event: SearchProgressEvent): vo
   options.onProgress?.(event);
 }
 
-function resolveEngineTemplateForOverride(
-  detected: SearchEngineDetection,
-  overrideId: SearchEngineId,
-  searxngBaseUrl?: string,
-): string | undefined {
-  if (overrideId === detected.id) return detected.templateUrl;
-  if (overrideId === "searxng" && searxngBaseUrl) {
-    return `${searxngBaseUrl.replace(/\/$/, "")}/search?q={searchTerms}`;
+function getOrCreateEngineHealth(engine: SearchEngineId): EngineHealthRecord {
+  const existing = sessionEngineHealth.get(engine);
+  if (existing) return existing;
+
+  const created: EngineHealthRecord = {
+    engine,
+    successes: 0,
+    failures: 0,
+    blocked: 0,
+    consecutiveFailures: 0,
+    totalLatencyMs: 0,
+    samples: 0,
+  };
+  sessionEngineHealth.set(engine, created);
+  return created;
+}
+
+function engineHealthCooldownMs(config: FreeWebSearchConfig): number {
+  return config.engineHealthCooldownMs ?? 10 * 60 * 1000;
+}
+
+function engineFailureThreshold(config: FreeWebSearchConfig): number {
+  return Math.max(1, config.engineFailureThreshold ?? 2);
+}
+
+function isCoolingDown(engine: SearchEngineId, config: FreeWebSearchConfig, now = Date.now()): boolean {
+  const record = sessionEngineHealth.get(engine);
+  if (!record?.coolDownUntil) return false;
+  if (record.coolDownUntil <= now) {
+    record.coolDownUntil = undefined;
+    return false;
   }
-  return undefined;
+  return record.consecutiveFailures >= engineFailureThreshold(config);
+}
+
+function recordEngineHealth(result: EngineRunResult, config: FreeWebSearchConfig, now = Date.now()): void {
+  const record = getOrCreateEngineHealth(result.engine.id);
+  record.lastLatencyMs = result.durationMs;
+  record.totalLatencyMs += result.durationMs;
+  record.samples += 1;
+
+  if (result.results.length > 0) {
+    record.successes += 1;
+    record.consecutiveFailures = 0;
+    record.coolDownUntil = undefined;
+    record.lastSuccessAt = now;
+    return;
+  }
+
+  record.failures += 1;
+  record.consecutiveFailures += 1;
+  record.lastFailureAt = now;
+  record.lastFailureReason = result.blockedReason || result.error;
+  if (result.blockedReason) record.blocked += 1;
+
+  if (record.consecutiveFailures >= engineFailureThreshold(config)) {
+    record.coolDownUntil = now + engineHealthCooldownMs(config);
+  }
+}
+
+export function getSessionEngineHealthSnapshot(now = Date.now()): EngineHealthSnapshot[] {
+  return [...sessionEngineHealth.values()]
+    .map((record) => ({
+      engine: record.engine,
+      successes: record.successes,
+      failures: record.failures,
+      blocked: record.blocked,
+      consecutiveFailures: record.consecutiveFailures,
+      coolingDown: Boolean(record.coolDownUntil && record.coolDownUntil > now),
+      coolDownUntil: record.coolDownUntil,
+      lastFailureReason: record.lastFailureReason,
+      lastLatencyMs: record.lastLatencyMs,
+      avgLatencyMs: record.samples > 0 ? Math.round(record.totalLatencyMs / record.samples) : undefined,
+      lastSuccessAt: record.lastSuccessAt,
+      lastFailureAt: record.lastFailureAt,
+    }))
+    .sort((a, b) => ENGINE_FALLBACK_ORDER.indexOf(a.engine) - ENGINE_FALLBACK_ORDER.indexOf(b.engine));
+}
+
+export function resetSessionEngineHealth(): void {
+  sessionEngineHealth.clear();
 }
 
 function normalizeEngineId(engine: SearchEngineId | undefined, detectedEngine: SearchEngineDetection): SearchEngineId {
   if (!engine || engine === "unknown") {
-    return detectedEngine.id === "unknown" ? "duckduckgo" : detectedEngine.id;
+    return detectedEngine.id === "unknown" ? "yahoo" : detectedEngine.id;
   }
   return engine;
 }
@@ -96,32 +201,35 @@ function normalizeEngineId(engine: SearchEngineId | undefined, detectedEngine: S
 function buildEngineCandidate(
   requestedEngine: SearchEngineId,
   detectedEngine: SearchEngineDetection,
-  searxngBaseUrl?: string,
+  config: Pick<FreeWebSearchConfig, "searxngBaseUrl" | "locale" | "language">,
 ): SearchEngineDetection {
   return {
     ...detectedEngine,
     id: requestedEngine,
     label: requestedEngine,
-    templateUrl: resolveEngineTemplateForOverride(detectedEngine, requestedEngine, searxngBaseUrl),
+    templateUrl: templateForEngine(requestedEngine, config),
   };
 }
 
 function buildEngineCandidates(
   requestedEngine: SearchRequest["engine"],
   detectedEngine: SearchEngineDetection,
-  searxngBaseUrl?: string,
+  config: FreeWebSearchConfig,
 ): SearchEngineDetection[] {
   const explicitEngine = requestedEngine && requestedEngine !== "unknown" ? requestedEngine : undefined;
   if (explicitEngine) {
-    return [buildEngineCandidate(explicitEngine, detectedEngine, searxngBaseUrl)];
+    return [buildEngineCandidate(explicitEngine, detectedEngine, config)];
   }
 
   const primaryEngine = normalizeEngineId(requestedEngine, detectedEngine);
   const candidateIds = [primaryEngine, ...ENGINE_FALLBACK_ORDER]
     .filter((engineId, index, list) => list.indexOf(engineId) === index)
-    .filter((engineId) => engineId !== "searxng" || Boolean(searxngBaseUrl));
+    .filter((engineId) => engineId !== "searxng" || Boolean(config.searxngBaseUrl));
 
-  return candidateIds.map((engineId) => buildEngineCandidate(engineId, detectedEngine, searxngBaseUrl));
+  const cooledDownFiltered = candidateIds.filter((engineId) => !isCoolingDown(engineId, config));
+  const finalIds = cooledDownFiltered.length > 0 ? cooledDownFiltered : candidateIds;
+
+  return finalIds.map((engineId) => buildEngineCandidate(engineId, detectedEngine, config));
 }
 
 function toSearchAttempt(result: EngineRunResult): SearchAttempt {
@@ -138,7 +246,20 @@ function toSearchAttempt(result: EngineRunResult): SearchAttempt {
     pageTitle: result.pageTitle,
     httpStatus: result.httpStatus,
     error: result.error,
+    durationMs: result.durationMs,
   };
+}
+
+function httpTimeoutForEngine(engine: SearchEngineId, config: FreeWebSearchConfig): number {
+  const defaultTimeout = config.httpTimeoutMs ?? 10000;
+  if (engine === "duckduckgo") return Math.min(defaultTimeout, 5000);
+  return defaultTimeout;
+}
+
+function browserNavigationTimeoutForEngine(engine: SearchEngineId, config: FreeWebSearchConfig): number {
+  const defaultTimeout = config.browserNavigationTimeoutMs ?? 12000;
+  if (engine === "duckduckgo") return Math.min(defaultTimeout, 6000);
+  return defaultTimeout;
 }
 
 async function runEngine(
@@ -151,6 +272,7 @@ async function runEngine(
   rankingQuery: string,
   options: RunSearchOptions,
 ): Promise<EngineRunResult> {
+  const startedAt = Date.now();
   const searchUrl = buildSearchUrl(engine, request.query);
   let httpResults: SearchResponse["results"] = [];
   let rankedHttp: SearchResponse["results"] = [];
@@ -173,7 +295,7 @@ async function runEngine(
     try {
       httpResults = await runtime.searchViaHttp(searchUrl, engine.id, config.userAgent, {
         signal: options.signal,
-        timeoutMs: config.httpTimeoutMs ?? 10000,
+        timeoutMs: httpTimeoutForEngine(engine.id, config),
       });
       rankedHttp = rerankResults(httpResults, rankingQuery, request.domainFilter);
       emitProgress(options, {
@@ -231,7 +353,7 @@ async function runEngine(
     try {
       browserResults = await runtime.searchViaBrowser(browser, modeForBrowser(mode), searchUrl, {
         signal: options.signal,
-        navigationTimeoutMs: config.browserNavigationTimeoutMs ?? 12000,
+        navigationTimeoutMs: browserNavigationTimeoutForEngine(engine.id, config),
         settleTimeoutMs: config.browserResultWaitMs ?? 700,
       });
       usedBrowserFallback = browserResults.length > 0;
@@ -299,6 +421,7 @@ async function runEngine(
     error,
     httpResults: rankedHttp.length,
     browserResults: browserResults.length,
+    durationMs: Date.now() - startedAt,
   };
 }
 
@@ -330,12 +453,12 @@ export async function runSearch(cwd: string, request: SearchRequest, options: Ru
   const browser = await runtime.detectBrowser(config);
   const detectedEngine = await runtime.detectSearchEngine(browser, config);
   const mode = normalizedRequest.mode || config.mode || "auto";
-  const engineCandidates = buildEngineCandidates(normalizedRequest.engine, detectedEngine, config.searxngBaseUrl);
+  const engineCandidates = buildEngineCandidates(normalizedRequest.engine, detectedEngine, config);
 
   const attempts: SearchAttempt[] = [];
   const collectedResults: SearchResponse["results"] = [];
   let usedBrowserFallback = false;
-  let finalEngine = engineCandidates[0] || buildEngineCandidate("duckduckgo", detectedEngine, config.searxngBaseUrl);
+  let finalEngine = engineCandidates[0] || buildEngineCandidate("yahoo", detectedEngine, config);
 
   for (let index = 0; index < engineCandidates.length; index += 1) {
     const candidate = engineCandidates[index];
@@ -348,6 +471,7 @@ export async function runSearch(cwd: string, request: SearchRequest, options: Ru
     }
 
     const attempt = await runEngine(runtime, browser, config, normalizedRequest, candidate, mode, rankingQuery, options);
+    recordEngineHealth(attempt, config);
     attempts.push(toSearchAttempt(attempt));
     if (attempt.usedBrowserFallback) usedBrowserFallback = true;
 
