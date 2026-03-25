@@ -12,7 +12,7 @@ Free, browser-aware web search and readable content extraction for [Pi coding ag
 `pi-web-access` is excellent, but its search path depends on Perplexity/Gemini. `pi-free-web-search` is for teams that want:
 
 - zero paid APIs
-- browser-aware behavior (default browser + default search engine detection)
+- browser-aware behavior for automation, while defaulting searches to DuckDuckGo
 - HTTP-first performance with browser fallback only when quality requires it
 - a package that feels native in Pi (tools, commands, status line, TUI rendering)
 
@@ -63,12 +63,12 @@ pi install /absolute/path/to/pi-free-web-search
 
 ## How the search pipeline works
 
-1. Detect browser context and likely default engine.
-2. Build search URL for active engine.
-3. Run HTTP search first.
-4. Re-rank and quality-check results.
-5. Escalate to browser automation only if needed and allowed.
-6. If the active engine is blocked or returns zero results, retry sensible alternative engines automatically.
+1. Detect browser context for automation.
+2. Choose the configured search engine, or DuckDuckGo by default.
+3. Build search URL for the active engine.
+4. Run HTTP search first.
+5. Re-rank and quality-check results.
+6. Escalate to browser automation only if needed and allowed.
 7. Merge/dedupe/rerank final results.
 8. Optionally fetch top-result content with readable extraction.
 
@@ -108,7 +108,7 @@ Create `~/.pi/free-web-search.json`:
   "mode": "auto",
   "httpFirst": true,
   "browserFallbackThreshold": 0.55,
-  "preferredEngine": "google"
+  "preferredEngine": "duckduckgo"
 }
 ```
 
@@ -124,7 +124,7 @@ Project-local override is also supported:
 |---|---|---|---|
 | `mode` | `auto \| visible \| headless \| ask \| disabled` | `auto` | Global browser execution policy |
 | `preferredBrowser` | browser family | detected | Force browser family |
-| `preferredEngine` | search engine id | detected/fallback | Force search engine |
+| `preferredEngine` | search engine id | `duckduckgo` | Force search engine |
 | `searchTemplateUrl` | string | per engine | Custom search URL template |
 | `browserExecutablePath` | string | auto-resolved | Explicit browser executable |
 | `chromiumProfilePath` | string | auto | Chromium-family profile path |

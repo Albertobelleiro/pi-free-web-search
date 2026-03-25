@@ -43,8 +43,6 @@ const defaultDeps: SearchRuntimeDeps = {
   searchViaBrowser,
 };
 
-const fallbackEngineOrder: SearchEngineId[] = ["duckduckgo", "bing", "google", "yahoo", "brave", "searxng"];
-
 interface EngineRunResult {
   engine: SearchEngineDetection;
   results: SearchResponse["results"];
@@ -83,40 +81,18 @@ function resolveEngineTemplateForOverride(
   return undefined;
 }
 
-function uniqueEngines(values: Array<SearchEngineId | undefined>): SearchEngineId[] {
-  const output: SearchEngineId[] = [];
-  const seen = new Set<string>();
-  for (const value of values) {
-    if (!value || value === "unknown" || seen.has(value)) continue;
-    output.push(value);
-    seen.add(value);
-  }
-  return output;
-}
-
-function resolveEngineCandidate(
+function buildEngineCandidate(
+  requestedEngine: SearchRequest["engine"],
   detectedEngine: SearchEngineDetection,
-  engineId: SearchEngineId,
   searxngBaseUrl?: string,
 ): SearchEngineDetection {
+  const engineId = requestedEngine || detectedEngine.id;
   return {
     ...detectedEngine,
     id: engineId,
     label: engineId,
     templateUrl: resolveEngineTemplateForOverride(detectedEngine, engineId, searxngBaseUrl),
   };
-}
-
-function buildEngineCandidates(
-  requestedEngine: SearchRequest["engine"],
-  detectedEngine: SearchEngineDetection,
-  searxngBaseUrl?: string,
-): SearchEngineDetection[] {
-  const engineIds = uniqueEngines([requestedEngine, detectedEngine.id, ...fallbackEngineOrder]).filter(
-    (engineId) => engineId !== "searxng" || detectedEngine.id === "searxng" || Boolean(searxngBaseUrl),
-  );
-
-  return engineIds.map((engineId) => resolveEngineCandidate(detectedEngine, engineId, searxngBaseUrl));
 }
 
 function toSearchAttempt(result: EngineRunResult): SearchAttempt {
@@ -286,38 +262,11 @@ export async function runSearch(cwd: string, request: SearchRequest, options: Ru
   const browser = await runtime.detectBrowser(config);
   const detectedEngine = await runtime.detectSearchEngine(browser, config);
   const mode = request.mode || config.mode || "auto";
-  const engineCandidates = buildEngineCandidates(request.engine, detectedEngine, config.searxngBaseUrl);
-  const attempts: SearchAttempt[] = [];
-  let finalAttempt: EngineRunResult | undefined;
-
-  for (let index = 0; index < engineCandidates.length; index += 1) {
-    const engine = engineCandidates[index];
-    const attempt = await runEngine(runtime, browser, config, request, engine, mode, options);
-    attempts.push(toSearchAttempt(attempt));
-
-    if (attempt.results.length > 0) {
-      finalAttempt = attempt;
-      break;
-    }
-
-    const nextEngine = engineCandidates[index + 1];
-    if (nextEngine) {
-      const reason = attempt.blockedReason
-        ? `${engine.label} was blocked (${attempt.blockedReason})`
-        : attempt.error
-          ? `${engine.label} failed (${attempt.error})`
-          : `${engine.label} returned no results`;
-      emitProgress(options, {
-        phase: "detecting",
-        message: `${reason}; retrying with ${nextEngine.label}`,
-        metrics: { fromEngine: engine.id, toEngine: nextEngine.id },
-      });
-    }
-  }
-
-  const activeEngine = finalAttempt?.engine || engineCandidates[0] || detectedEngine;
-  const results = finalAttempt?.results || [];
-  const usedBrowserFallback = finalAttempt?.usedBrowserFallback || false;
+  const activeEngine = buildEngineCandidate(request.engine, detectedEngine, config.searxngBaseUrl);
+  const finalAttempt = await runEngine(runtime, browser, config, request, activeEngine, mode, options);
+  const attempts: SearchAttempt[] = [toSearchAttempt(finalAttempt)];
+  const results = finalAttempt.results;
+  const usedBrowserFallback = finalAttempt.usedBrowserFallback;
 
   emitProgress(options, {
     phase: "done",
