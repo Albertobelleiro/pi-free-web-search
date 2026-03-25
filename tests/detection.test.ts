@@ -14,3 +14,10 @@ test("preferred engine config wins", async () => {
   expect(engine.id).toBe("duckduckgo");
   expect(engine.source).toBe("config");
 });
+
+test("default engine is duckduckgo regardless of detected browser", async () => {
+  const browser = await detectBrowser({ preferredBrowser: "brave" });
+  const engine = await detectSearchEngine(browser, {});
+  expect(engine.id).toBe("duckduckgo");
+  expect(engine.source).toBe("fallback");
+});

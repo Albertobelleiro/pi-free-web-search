@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import { runSearch, type SearchRuntimeDeps } from "../src/search/orchestrator";
-import { SearchEngineBlockedError } from "../src/search/http";
 import type { BrowserDetection, FreeWebSearchConfig, SearchEngineDetection, SearchResult } from "../src/types";
 
 const browser: BrowserDetection = {
@@ -158,7 +157,7 @@ test("engine override switches outbound search endpoint", async () => {
   expect(observedUrl.startsWith("https://www.bing.com/search?")).toBe(true);
 });
 
-test("retries with a fallback engine when the detected engine is blocked", async () => {
+test("keeps a single search engine attempt when no override is provided", async () => {
   const result = await runSearch(
     process.cwd(),
     { query: "bun docs", numResults: 5, mode: "disabled" },
@@ -168,14 +167,11 @@ test("retries with a fallback engine when the detected engine is blocked", async
         detectBrowser: async () => browser,
         detectSearchEngine: async () => ({
           ...engine,
-          id: "brave",
-          label: "brave",
-          templateUrl: "https://search.brave.com/search?q={searchTerms}",
+          id: "duckduckgo",
+          label: "duckduckgo",
+          templateUrl: "https://duckduckgo.com/html/?q={searchTerms}",
         }),
-        searchViaHttp: async (_url, engineId) => {
-          if (engineId === "brave") throw new SearchEngineBlockedError("brave", "http", "HTTP 429");
-          return [makeResult("https://bun.sh/docs", "Bun Docs", 1)];
-        },
+        searchViaHttp: async () => [makeResult("https://bun.sh/docs", "Bun Docs", 1)],
         searchViaBrowser: async () => [],
       },
     },
@@ -183,36 +179,6 @@ test("retries with a fallback engine when the detected engine is blocked", async
 
   expect(result.context.engine.id).toBe("duckduckgo");
   expect(result.results.length).toBe(1);
-  expect(result.attempts[0].engine).toBe("brave");
-  expect(result.attempts[0].blockedReason).toBe("HTTP 429");
-  expect(result.attempts[1].engine).toBe("duckduckgo");
-});
-
-test("retries with a fallback engine when the primary engine returns no results", async () => {
-  const result = await runSearch(
-    process.cwd(),
-    { query: "bun docs", numResults: 5, mode: "disabled" },
-    {
-      deps: {
-        loadConfig: () => ({ mode: "auto", httpFirst: true }),
-        detectBrowser: async () => browser,
-        detectSearchEngine: async () => ({
-          ...engine,
-          id: "brave",
-          label: "brave",
-          templateUrl: "https://search.brave.com/search?q={searchTerms}",
-        }),
-        searchViaHttp: async (_url, engineId) => {
-          if (engineId === "brave") return [];
-          return [makeResult("https://github.com/oven-sh/bun", "Bun GitHub", 1)];
-        },
-        searchViaBrowser: async () => [],
-      },
-    },
-  );
-
-  expect(result.context.engine.id).toBe("duckduckgo");
-  expect(result.results[0].url).toBe("https://github.com/oven-sh/bun");
-  expect(result.attempts[0].finalResults).toBe(0);
-  expect(result.attempts[1].finalResults).toBe(1);
+  expect(result.attempts.length).toBe(1);
+  expect(result.attempts[0].engine).toBe("duckduckgo");
 });

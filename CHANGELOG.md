@@ -10,10 +10,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 ### Added
 - `/pi-search` prompt template for steering the current Pi session/model to use `free_web_search` and `free_fetch_content` for documentation research.
 
+### Changed
+- Browser detection is now used only for automation; search defaults to DuckDuckGo unless the user explicitly overrides the engine.
+
 ### Fixed
-- Search now retries alternative engines when the detected/default engine is blocked or returns zero results.
-- Brave/Google/DuckDuckGo bot-challenge pages are detected explicitly so fallback can happen before users get silent `0 results` failures.
-- Search result summaries now expose fallback attempts so users can see when an engine switched from the detected default.
+- Searches no longer inherit Brave/Bing/other browser search-engine defaults just because that browser is installed or active on the computer.
 
 ## [0.2.0] - 2026-03-24
 
