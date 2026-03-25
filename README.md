@@ -26,6 +26,7 @@ Free, browser-aware web search and readable content extraction for [Pi coding ag
 | Tool | `free_fetch_content` | Readable content extraction from a URL with browser fallback for JS-heavy pages |
 | Command | `/free-search-info` | Shows detected browser, engine, mode, and executable |
 | Command | `/free-search-test <query>` | End-to-end smoke test from inside Pi |
+| Command | `/free-search-debug <query>` | Runs a real search and shows detailed debug logs/attempt metadata |
 | Prompt | `/pi-search <topic>` | Short research template that steers the current session/model to use `free_web_search` and `free_fetch_content` |
 | Skill | `free-web-researcher` | Guidance for robust research flow with these tools |
 
@@ -147,7 +148,14 @@ Project-local override is also supported:
 free_web_search({ query: "Bun runtime documentation", numResults: 5 })
 free_web_search({ query: "React server components caching", includeContent: true })
 free_web_search({ query: "Supabase RLS docs", domainFilter: ["supabase.com"] })
+free_web_search({ query: "OpenAI Responses API reference", engine: "yahoo", mode: "headless", debug: true })
 free_fetch_content({ url: "https://bun.sh/docs" })
+```
+
+For manual diagnostics inside Pi:
+
+```text
+/free-search-debug OpenAI Responses API documentation
 ```
 
 ---

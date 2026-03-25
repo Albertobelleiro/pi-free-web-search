@@ -84,12 +84,16 @@ export interface SearchRequest {
 
 export interface SearchAttempt {
   engine: SearchEngineId;
+  searchUrl: string;
   httpResults: number;
   browserResults: number;
   finalResults: number;
   attemptedBrowserFallback: boolean;
   usedBrowserFallback: boolean;
   blockedReason?: string;
+  blockedSource?: "http" | "browser";
+  pageTitle?: string;
+  httpStatus?: number;
   error?: string;
 }
 

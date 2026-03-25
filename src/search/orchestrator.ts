@@ -45,10 +45,14 @@ const defaultDeps: SearchRuntimeDeps = {
 
 interface EngineRunResult {
   engine: SearchEngineDetection;
+  searchUrl: string;
   results: SearchResponse["results"];
   usedBrowserFallback: boolean;
   attemptedBrowserFallback: boolean;
   blockedReason?: string;
+  blockedSource?: "http" | "browser";
+  pageTitle?: string;
+  httpStatus?: number;
   error?: string;
   httpResults: number;
   browserResults: number;
@@ -98,12 +102,16 @@ function buildEngineCandidate(
 function toSearchAttempt(result: EngineRunResult): SearchAttempt {
   return {
     engine: result.engine.id,
+    searchUrl: result.searchUrl,
     httpResults: result.httpResults,
     browserResults: result.browserResults,
     finalResults: result.results.length,
     attemptedBrowserFallback: result.attemptedBrowserFallback,
     usedBrowserFallback: result.usedBrowserFallback,
     blockedReason: result.blockedReason,
+    blockedSource: result.blockedSource,
+    pageTitle: result.pageTitle,
+    httpStatus: result.httpStatus,
     error: result.error,
   };
 }
@@ -124,6 +132,9 @@ async function runEngine(
   let httpError: unknown;
   let browserError: unknown;
   let blockedReason: string | undefined;
+  let blockedSource: "http" | "browser" | undefined;
+  let pageTitle: string | undefined;
+  let httpStatus: number | undefined;
   let attemptedBrowserFallback = false;
   let usedBrowserFallback = false;
 
@@ -131,7 +142,7 @@ async function runEngine(
     emitProgress(options, {
       phase: "http-search",
       message: `Searching via HTTP first (${engine.label})`,
-      metrics: { engine: engine.id },
+      metrics: { engine: engine.id, searchUrl },
     });
     try {
       httpResults = await runtime.searchViaHttp(searchUrl, engine.id, config.userAgent, {
@@ -142,16 +153,27 @@ async function runEngine(
       emitProgress(options, {
         phase: "http-search",
         message: `HTTP search found ${rankedHttp.length} result(s) via ${engine.label}`,
-        metrics: { engine: engine.id, httpResults: rankedHttp.length },
+        metrics: { engine: engine.id, httpResults: rankedHttp.length, searchUrl },
       });
     } catch (error) {
       if (isAbortError(error)) throw error;
       if (isSearchEngineBlockedError(error)) {
         blockedReason = error.reason;
+        blockedSource = error.source;
+        pageTitle = typeof error.metadata.title === "string" ? error.metadata.title : undefined;
+        httpStatus = typeof error.metadata.status === "number" ? error.metadata.status : undefined;
         emitProgress(options, {
           phase: "http-search",
           message: `${engine.label} HTTP search was blocked (${error.reason})`,
-          metrics: { engine: engine.id, blocked: true },
+          metrics: {
+            engine: engine.id,
+            blocked: true,
+            searchUrl,
+            blockedReason: error.reason,
+            blockedSource: error.source,
+            httpStatus: httpStatus ?? "n/a",
+            pageTitle: pageTitle ?? "n/a",
+          },
         });
       } else {
         httpError = error;
@@ -177,7 +199,7 @@ async function runEngine(
     emitProgress(options, {
       phase: "browser-search",
       message: `Escalating to browser automation (${engine.label})`,
-      metrics: { engine: engine.id, qualityScore, threshold },
+      metrics: { engine: engine.id, qualityScore, threshold, searchUrl },
     });
     try {
       browserResults = await runtime.searchViaBrowser(browser, modeForBrowser(mode), searchUrl, {
@@ -189,16 +211,25 @@ async function runEngine(
       emitProgress(options, {
         phase: "browser-search",
         message: `Browser search found ${browserResults.length} result(s) via ${engine.label}`,
-        metrics: { engine: engine.id, browserResults: browserResults.length },
+        metrics: { engine: engine.id, browserResults: browserResults.length, searchUrl },
       });
     } catch (error) {
       if (isAbortError(error)) throw error;
       if (isSearchEngineBlockedError(error)) {
         blockedReason = error.reason;
+        blockedSource = error.source;
+        pageTitle = typeof error.metadata.title === "string" ? error.metadata.title : pageTitle;
         emitProgress(options, {
           phase: "browser-search",
           message: `${engine.label} browser search was blocked (${error.reason})`,
-          metrics: { engine: engine.id, blocked: true },
+          metrics: {
+            engine: engine.id,
+            blocked: true,
+            searchUrl,
+            blockedReason: error.reason,
+            blockedSource: error.source,
+            pageTitle: pageTitle ?? "n/a",
+          },
         });
       } else {
         browserError = error;
@@ -215,7 +246,7 @@ async function runEngine(
   emitProgress(options, {
     phase: "rerank",
     message: `Ranking and deduplicating results (${engine.label})`,
-    metrics: { engine: engine.id },
+    metrics: { engine: engine.id, searchUrl },
   });
 
   const mergedCandidates = browserResults.length > 0 ? [...rankedHttp, ...browserResults] : rankedHttp;
@@ -230,10 +261,14 @@ async function runEngine(
 
   return {
     engine,
+    searchUrl,
     results: reranked,
     usedBrowserFallback,
     attemptedBrowserFallback,
     blockedReason,
+    blockedSource,
+    pageTitle,
+    httpStatus,
     error,
     httpResults: rankedHttp.length,
     browserResults: browserResults.length,
