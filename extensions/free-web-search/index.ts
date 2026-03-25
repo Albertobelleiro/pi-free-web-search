@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, keyHint, truncateHead } from "@mariozechner/pi-coding-agent";
 import { StringEnum } from "@mariozechner/pi-ai";
 import { Text } from "@mariozechner/pi-tui";
@@ -6,12 +6,13 @@ import { Type } from "@sinclair/typebox";
 import { fetchContent } from "../../src/content/fetch";
 import { loadConfig } from "../../src/config";
 import { runSearch, resolveSearchContext } from "../../src/search/orchestrator";
+import type { BrowserMode } from "../../src/types";
 import { isAbortError } from "../../src/util/abort";
 
 const SearchParams = Type.Object({
-  query: Type.String({ description: "Natural language search query" }),
+  query: Type.String({ minLength: 1, description: "Natural language search query" }),
   numResults: Type.Optional(Type.Integer({ minimum: 1, maximum: 10, description: "Maximum results (default 5)" })),
-  engine: Type.Optional(StringEnum(["google", "bing", "duckduckgo", "brave", "yahoo", "searxng", "unknown"] as const, { description: "Optional search engine override" })),
+  engine: Type.Optional(StringEnum(["google", "bing", "duckduckgo", "brave", "yahoo", "searxng"] as const, { description: "Optional search engine override" })),
   mode: Type.Optional(StringEnum(["auto", "visible", "headless", "ask", "disabled"] as const, { description: "Browser mode override" })),
   includeContent: Type.Optional(Type.Boolean({ description: "Fetch readable content for top results" })),
   debug: Type.Optional(Type.Boolean({ description: "Include detailed search/debug logs in the output" })),
@@ -62,10 +63,27 @@ function summarizeAttempts(attempts: Array<any> = []): string | undefined {
 }
 
 function blockedSummary(attempts: Array<any> = []): string | undefined {
-  if (attempts.length !== 1) return undefined;
-  const attempt = attempts[0];
-  if (!attempt?.blockedReason) return undefined;
-  return `${formatEngineLabel(attempt.engine)} blocked this query (${attempt.blockedReason})`;
+  if (attempts.length === 0) return undefined;
+  const hasAnyResults = attempts.some((attempt) => (attempt?.finalResults ?? 0) > 0);
+  if (hasAnyResults) return undefined;
+
+  const blockedAttempt = attempts.find((attempt) => attempt?.blockedReason);
+  if (!blockedAttempt?.blockedReason) return undefined;
+  return `${formatEngineLabel(blockedAttempt.engine)} blocked this query (${blockedAttempt.blockedReason})`;
+}
+
+async function resolveAskMode(mode: BrowserMode | undefined, ctx: ExtensionContext, signal?: AbortSignal): Promise<BrowserMode | undefined> {
+  if (mode !== "ask") return mode;
+
+  if (!ctx.hasUI) return "disabled";
+
+  const approved = await ctx.ui.confirm(
+    "Allow browser automation?",
+    "free-web-search wants to use browser automation for this request. Approve browser fallback?",
+    { signal, timeout: 30000 },
+  );
+
+  return approved ? "headless" : "disabled";
 }
 
 function fallbackLabel(details: any): string | undefined {
@@ -162,13 +180,26 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
       };
 
       try {
+        const query = params.query.trim();
+        if (!query) {
+          return {
+            content: [{ type: "text", text: "Search query must not be empty." }],
+            details: { validationError: true, field: "query", message: "Search query must not be empty" },
+          };
+        }
+
+        const mode = await resolveAskMode(params.mode, ctx, signal);
+        if (params.mode === "ask" && mode === "disabled") {
+          emitProgress("Browser fallback not approved; continuing in disabled mode", { phase: "detecting", askResolvedMode: mode });
+        }
+
         const search = await runSearch(
           ctx.cwd,
           {
-            query: params.query,
+            query,
             numResults: params.numResults ?? 5,
             engine: params.engine,
-            mode: params.mode,
+            mode,
             includeContent: params.includeContent,
             domainFilter: params.domainFilter,
             context: params.context,
@@ -213,7 +244,7 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
               url: result.url,
             });
             try {
-              const content = await fetchContent(ctx.cwd, result.url, params.mode, {
+              const content = await fetchContent(ctx.cwd, result.url, mode, {
                 signal,
                 onProgress: (progress) => emitProgress(`${index + 1}/${total}: ${progress.message}`, {
                   phase: "content",
@@ -250,7 +281,7 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
 
         return {
           content: [{ type: "text", text: maybeTruncate(lines.join("\n")) }],
-          details: { ...search, debug: params.debug, progressLog },
+          details: { ...search, requestedMode: params.mode, effectiveMode: mode || search.context.mode, debug: params.debug, progressLog },
         };
       } catch (error) {
         if (signal?.aborted || isAbortError(error)) {
@@ -344,7 +375,15 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
     parameters: FetchParams,
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
       try {
-        const content = await fetchContent(ctx.cwd, params.url, params.mode, {
+        const mode = await resolveAskMode(params.mode, ctx, signal);
+        if (params.mode === "ask" && mode === "disabled") {
+          onUpdate?.({
+            content: [{ type: "text", text: "Browser fallback not approved; continuing in disabled mode" }],
+            details: { phase: "http-fetch", message: "Browser fallback not approved; continuing in disabled mode" },
+          });
+        }
+
+        const content = await fetchContent(ctx.cwd, params.url, mode, {
           signal,
           onProgress: (progress) => {
             onUpdate?.({
@@ -356,7 +395,7 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
         const body = [`# ${content.title}`, `URL: ${content.url}`, `Browser fallback: ${content.usedBrowserFallback ? "yes" : "no"}`, "", content.markdown].join("\n");
         return {
           content: [{ type: "text", text: maybeTruncate(body) }],
-          details: content,
+          details: { ...content, requestedMode: params.mode, effectiveMode: mode || "auto" },
         };
       } catch (error) {
         if (signal?.aborted || isAbortError(error)) {

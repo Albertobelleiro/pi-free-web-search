@@ -1,0 +1,101 @@
+[
+  {
+    "name": "empty-query",
+    "request": {
+      "query": "",
+      "numResults": 5,
+      "mode": "disabled",
+      "engine": "brave"
+    },
+    "ok": true,
+    "results": 2,
+    "top": "https://ads.brave.com/register/search?mtm_source=brave-search&mtm_medium=searchhome&mtm_campaign=brave-search&mtm_content=evergreen",
+    "contextMode": "disabled",
+    "engine": "brave",
+    "attempt": {
+      "engine": "brave",
+      "searchUrl": "https://search.brave.com/search?q=",
+      "httpResults": 2,
+      "browserResults": 0,
+      "finalResults": 2,
+      "attemptedBrowserFallback": false,
+      "usedBrowserFallback": false
+    }
+  },
+  {
+    "name": "whitespace-query",
+    "request": {
+      "query": "   ",
+      "numResults": 5,
+      "mode": "disabled",
+      "engine": "brave"
+    },
+    "ok": true,
+    "results": 0,
+    "top": "",
+    "contextMode": "disabled",
+    "engine": "brave",
+    "attempt": {
+      "engine": "brave",
+      "searchUrl": "https://search.brave.com/search?q=%20%20%20",
+      "httpResults": 0,
+      "browserResults": 0,
+      "finalResults": 0,
+      "attemptedBrowserFallback": false,
+      "usedBrowserFallback": false,
+      "blockedReason": "HTTP 429",
+      "blockedSource": "http",
+      "pageTitle": "PoW Captcha - Brave Search",
+      "httpStatus": 429
+    }
+  },
+  {
+    "name": "unknown-engine",
+    "request": {
+      "query": "Bun docs",
+      "numResults": 5,
+      "mode": "disabled",
+      "engine": "unknown"
+    },
+    "ok": true,
+    "results": 0,
+    "top": "",
+    "contextMode": "disabled",
+    "engine": "unknown",
+    "attempt": {
+      "engine": "unknown",
+      "searchUrl": "https://duckduckgo.com/html/?q=Bun%20docs",
+      "httpResults": 0,
+      "browserResults": 0,
+      "finalResults": 0,
+      "attemptedBrowserFallback": false,
+      "usedBrowserFallback": false
+    }
+  },
+  {
+    "name": "ask-mode",
+    "request": {
+      "query": "OpenAI Responses API documentation",
+      "numResults": 5,
+      "mode": "ask",
+      "engine": "google"
+    },
+    "ok": true,
+    "results": 0,
+    "top": "",
+    "contextMode": "ask",
+    "engine": "google",
+    "attempt": {
+      "engine": "google",
+      "searchUrl": "https://www.google.com/search?q=OpenAI%20Responses%20API%20documentation",
+      "httpResults": 0,
+      "browserResults": 0,
+      "finalResults": 0,
+      "attemptedBrowserFallback": true,
+      "usedBrowserFallback": false,
+      "blockedReason": "unusual traffic challenge",
+      "blockedSource": "browser",
+      "pageTitle": "https://www.google.com/search?q=OpenAI%20Responses%20API%20documentation&amp;sei=ADrDacbVCqHy7M8P28v_6As"
+    }
+  }
+]

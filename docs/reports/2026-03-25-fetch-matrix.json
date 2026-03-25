@@ -1,0 +1,128 @@
+[
+  {
+    "url": "https://bun.com/docs/test",
+    "mode": "disabled",
+    "ok": true,
+    "title": "Test runner - Bun",
+    "markdownLength": 14251,
+    "excerpt": "Bun ships with a fast, built-in, Jest-compatible test runner. Tests are executed with the Bun runtime, and support the following features. * TypeScript and JSX * Lifecycle hooks * ",
+    "usedBrowserFallback": false
+  },
+  {
+    "url": "https://bun.com/docs/test",
+    "mode": "auto",
+    "ok": true,
+    "title": "Test runner - Bun",
+    "markdownLength": 14251,
+    "excerpt": "Bun ships with a fast, built-in, Jest-compatible test runner. Tests are executed with the Bun runtime, and support the following features. * TypeScript and JSX * Lifecycle hooks * ",
+    "usedBrowserFallback": false
+  },
+  {
+    "url": "https://www.npmjs.com/package/react",
+    "mode": "disabled",
+    "ok": true,
+    "title": "react",
+    "markdownLength": 1657,
+    "excerpt": "19.2.4 • Public • Published 2 months ago * [Readme](https://www.npmjs.com/package/react?activeTab=readme) * [Code Beta](https://www.npmjs.com/package/react?activeTab=code) * [0 Dep",
+    "usedBrowserFallback": false
+  },
+  {
+    "url": "https://www.npmjs.com/package/react",
+    "mode": "auto",
+    "ok": true,
+    "title": "react",
+    "markdownLength": 1657,
+    "excerpt": "19.2.4 • Public • Published 2 months ago * [Readme](https://www.npmjs.com/package/react?activeTab=readme) * [Code Beta](https://www.npmjs.com/package/react?activeTab=code) * [0 Dep",
+    "usedBrowserFallback": false
+  },
+  {
+    "url": "https://www.rfc-editor.org/rfc/rfc9110.pdf",
+    "mode": "disabled",
+    "ok": true,
+    "title": "https://www.rfc-editor.org/rfc/rfc9110.pdf",
+    "markdownLength": 1937144,
+    "excerpt": "%PDF-1.5 %���� 8345 0 obj <> endobj 8346 0 obj <>stream application/pdf Roy T. Fielding, Mark Nottingham, Julian Reschke The Hypertext Transfer Protocol (HTTP) is a stateless appli",
+    "usedBrowserFallback": false
+  },
+  {
+    "url": "https://www.rfc-editor.org/rfc/rfc9110.pdf",
+    "mode": "auto",
+    "ok": true,
+    "title": "https://www.rfc-editor.org/rfc/rfc9110.pdf",
+    "markdownLength": 1937144,
+    "excerpt": "%PDF-1.5 %���� 8345 0 obj <> endobj 8346 0 obj <>stream application/pdf Roy T. Fielding, Mark Nottingham, Julian Reschke The Hypertext Transfer Protocol (HTTP) is a stateless appli",
+    "usedBrowserFallback": false
+  },
+  {
+    "url": "https://example.com",
+    "mode": "disabled",
+    "ok": true,
+    "title": "Example Domain",
+    "markdownLength": 149,
+    "excerpt": "This domain is for use in documentation examples without needing permission. Avoid use in operations. [Learn more](https://iana.org/domains/example)",
+    "usedBrowserFallback": false
+  },
+  {
+    "url": "https://example.com",
+    "mode": "auto",
+    "ok": true,
+    "title": "Example Domain",
+    "markdownLength": 149,
+    "excerpt": "This domain is for use in documentation examples without needing permission. Avoid use in operations. [Learn more](https://iana.org/domains/example)",
+    "usedBrowserFallback": true
+  },
+  {
+    "url": "https://github.com/oven-sh/bun",
+    "mode": "disabled",
+    "ok": true,
+    "title": "GitHub - oven-sh/bun: Incredibly fast JavaScript runtime, bundler, test runner, and package manager – all in one",
+    "markdownLength": 27842,
+    "excerpt": "[Skip to content](#start-of-content) Navigation Menu --------------- * * AI CODE CREATION * [ GitHub CopilotWrite better code with AI ](https://github.com/features/copilot) * [ Git",
+    "usedBrowserFallback": false
+  },
+  {
+    "url": "https://github.com/oven-sh/bun",
+    "mode": "auto",
+    "ok": true,
+    "title": "GitHub - oven-sh/bun: Incredibly fast JavaScript runtime, bundler, test runner, and package manager – all in one",
+    "markdownLength": 27842,
+    "excerpt": "[Skip to content](#start-of-content) Navigation Menu --------------- * * AI CODE CREATION * [ GitHub CopilotWrite better code with AI ](https://github.com/features/copilot) * [ Git",
+    "usedBrowserFallback": false
+  },
+  {
+    "url": "https://platform.openai.com/settings/profile",
+    "mode": "disabled",
+    "ok": true,
+    "title": "OpenAI Platform",
+    "markdownLength": 0,
+    "excerpt": "",
+    "usedBrowserFallback": false
+  },
+  {
+    "url": "https://platform.openai.com/settings/profile",
+    "mode": "auto",
+    "ok": true,
+    "title": "Just a moment...",
+    "markdownLength": 67,
+    "excerpt": "Verification successful. Waiting for platform.openai.com to respond",
+    "usedBrowserFallback": true
+  },
+  {
+    "url": "https://x.com/OpenAI",
+    "mode": "disabled",
+    "ok": true,
+    "title": "https://x.com/OpenAI",
+    "markdownLength": 214,
+    "excerpt": "Something went wrong, but don’t fret — let’s give it another shot. ![⚠️](https://abs-0.twimg.com/emoji/v2/svg/26a0.svg) Some privacy related extensions may cause issues on x.com. P",
+    "usedBrowserFallback": false
+  },
+  {
+    "url": "https://x.com/OpenAI",
+    "mode": "auto",
+    "ok": true,
+    "title": "https://x.com/OpenAI",
+    "markdownLength": 214,
+    "excerpt": "Something went wrong, but don’t fret — let’s give it another shot. ![⚠️](https://abs-0.twimg.com/emoji/v2/svg/26a0.svg) Some privacy related extensions may cause issues on x.com. P",
+    "usedBrowserFallback": false
+  }
+]

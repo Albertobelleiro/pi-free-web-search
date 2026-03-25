@@ -17,12 +17,12 @@ const engine: SearchEngineDetection = {
   source: "fallback",
 };
 
-function makeResult(url: string, title: string, rank: number, score = 1): SearchResult {
+function makeResult(url: string, title: string, rank: number, score = 1, sourceEngine: SearchResult["sourceEngine"] = "google"): SearchResult {
   return {
     title,
     url,
     snippet: `${title} snippet`,
-    sourceEngine: "google",
+    sourceEngine,
     rank,
     score,
     domain: new URL(url).hostname,
@@ -171,7 +171,7 @@ test("keeps a single search engine attempt when no override is provided", async 
           label: "duckduckgo",
           templateUrl: "https://duckduckgo.com/html/?q={searchTerms}",
         }),
-        searchViaHttp: async () => [makeResult("https://bun.sh/docs", "Bun Docs", 1)],
+        searchViaHttp: async () => [makeResult("https://bun.sh/docs", "Bun Docs", 1, 1, "duckduckgo")],
         searchViaBrowser: async () => [],
       },
     },
@@ -181,4 +181,109 @@ test("keeps a single search engine attempt when no override is provided", async 
   expect(result.results.length).toBe(1);
   expect(result.attempts.length).toBe(1);
   expect(result.attempts[0].engine).toBe("duckduckgo");
+});
+
+test("falls back to a secondary engine when primary returns no results", async () => {
+  const observedEngines: string[] = [];
+
+  const result = await runSearch(
+    process.cwd(),
+    { query: "bun docs", numResults: 5, mode: "disabled" },
+    {
+      deps: {
+        loadConfig: () => ({ mode: "auto", httpFirst: true }),
+        detectBrowser: async () => browser,
+        detectSearchEngine: async () => ({
+          ...engine,
+          id: "duckduckgo",
+          label: "duckduckgo",
+          templateUrl: "https://duckduckgo.com/html/?q={searchTerms}",
+        }),
+        searchViaHttp: async (_url, engineId) => {
+          observedEngines.push(engineId);
+          if (engineId === "duckduckgo") return [];
+          return [makeResult("https://bun.sh/docs", "Bun Docs", 1, 1, engineId)];
+        },
+        searchViaBrowser: async () => [],
+      },
+    },
+  );
+
+  expect(observedEngines[0]).toBe("duckduckgo");
+  expect(observedEngines.length).toBeGreaterThan(1);
+  expect(result.attempts.length).toBeGreaterThan(1);
+  expect(result.results.length).toBe(1);
+  expect(result.context.engine.id).not.toBe("duckduckgo");
+});
+
+test("unknown engine override resolves to detected engine", async () => {
+  let observedEngine = "";
+
+  const result = await runSearch(
+    process.cwd(),
+    { query: "bun docs", numResults: 3, mode: "disabled", engine: "unknown" },
+    {
+      deps: {
+        loadConfig: () => ({ mode: "auto", httpFirst: true }),
+        detectBrowser: async () => browser,
+        detectSearchEngine: async () => ({
+          ...engine,
+          id: "duckduckgo",
+          label: "duckduckgo",
+          templateUrl: "https://duckduckgo.com/html/?q={searchTerms}",
+        }),
+        searchViaHttp: async (_url, engineId) => {
+          observedEngine = engineId;
+          return [makeResult("https://bun.sh/docs", "Bun Docs", 1, 1, engineId)];
+        },
+        searchViaBrowser: async () => [],
+      },
+    },
+  );
+
+  expect(observedEngine).toBe("duckduckgo");
+  expect(result.context.engine.id).toBe("duckduckgo");
+});
+
+test("ask mode does not auto-launch browser fallback", async () => {
+  let browserCalls = 0;
+
+  const result = await runSearch(
+    process.cwd(),
+    { query: "bun docs", numResults: 5, mode: "ask" },
+    {
+      deps: {
+        loadConfig: () => ({ mode: "auto", httpFirst: true, browserFallbackThreshold: 0.9 }),
+        detectBrowser: async () => browser,
+        detectSearchEngine: async () => engine,
+        searchViaHttp: async () => [makeResult("https://bun.sh/docs", "Bun Docs", 1)],
+        searchViaBrowser: async () => {
+          browserCalls += 1;
+          return [makeResult("https://github.com/oven-sh/bun", "Bun GitHub", 2)];
+        },
+      },
+    },
+  );
+
+  expect(browserCalls).toBe(0);
+  expect(result.usedBrowserFallback).toBe(false);
+  expect(result.results.length).toBe(1);
+});
+
+test("rejects empty query", async () => {
+  await expect(
+    runSearch(
+      process.cwd(),
+      { query: "   ", numResults: 5, mode: "disabled" },
+      {
+        deps: {
+          loadConfig: () => ({ mode: "auto", httpFirst: true }),
+          detectBrowser: async () => browser,
+          detectSearchEngine: async () => engine,
+          searchViaHttp: async () => [],
+          searchViaBrowser: async () => [],
+        },
+      },
+    ),
+  ).rejects.toThrow("Search query must not be empty");
 });

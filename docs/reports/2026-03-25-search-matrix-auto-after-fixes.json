@@ -1,0 +1,272 @@
+[
+  {
+    "query": "Bun runtime documentation",
+    "engine": "duckduckgo",
+    "mode": "auto",
+    "results": 0,
+    "top": "",
+    "finalEngine": "duckduckgo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "bot challenge",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "Bun runtime documentation",
+    "engine": "bing",
+    "mode": "auto",
+    "results": 5,
+    "top": "https://www.zhihu.com/question/664104217?write",
+    "finalEngine": "bing",
+    "attempts": [
+      {
+        "engine": "bing",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": true
+      }
+    ]
+  },
+  {
+    "query": "Bun runtime documentation",
+    "engine": "google",
+    "mode": "auto",
+    "results": 0,
+    "top": "",
+    "finalEngine": "google",
+    "attempts": [
+      {
+        "engine": "google",
+        "finalResults": 0,
+        "blockedReason": "unusual traffic challenge",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "Bun runtime documentation",
+    "engine": "brave",
+    "mode": "auto",
+    "results": 0,
+    "top": "",
+    "finalEngine": "brave",
+    "attempts": [
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "captcha",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "Bun runtime documentation",
+    "engine": "yahoo",
+    "mode": "auto",
+    "results": 5,
+    "top": "https://bun.com/docs/runtime",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "OpenAI Responses API documentation",
+    "engine": "duckduckgo",
+    "mode": "auto",
+    "results": 0,
+    "top": "",
+    "finalEngine": "duckduckgo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "bot challenge",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "OpenAI Responses API documentation",
+    "engine": "bing",
+    "mode": "auto",
+    "results": 5,
+    "top": "https://www.zhihu.com/question/572946129",
+    "finalEngine": "bing",
+    "attempts": [
+      {
+        "engine": "bing",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": true
+      }
+    ]
+  },
+  {
+    "query": "OpenAI Responses API documentation",
+    "engine": "google",
+    "mode": "auto",
+    "results": 0,
+    "top": "",
+    "finalEngine": "google",
+    "attempts": [
+      {
+        "engine": "google",
+        "finalResults": 0,
+        "blockedReason": "unusual traffic challenge",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "OpenAI Responses API documentation",
+    "engine": "brave",
+    "mode": "auto",
+    "results": 0,
+    "top": "",
+    "finalEngine": "brave",
+    "attempts": [
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "captcha",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "OpenAI Responses API documentation",
+    "engine": "yahoo",
+    "mode": "auto",
+    "results": 5,
+    "top": "https://developers.openai.com/api/reference/responses/overview",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "playwright locator docs",
+    "engine": "duckduckgo",
+    "mode": "auto",
+    "results": 0,
+    "top": "",
+    "finalEngine": "duckduckgo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "bot challenge",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "playwright locator docs",
+    "engine": "bing",
+    "mode": "auto",
+    "results": 5,
+    "top": "https://playwright.dev/docs/locators",
+    "finalEngine": "bing",
+    "attempts": [
+      {
+        "engine": "bing",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": true
+      }
+    ]
+  },
+  {
+    "query": "playwright locator docs",
+    "engine": "google",
+    "mode": "auto",
+    "results": 0,
+    "top": "",
+    "finalEngine": "google",
+    "attempts": [
+      {
+        "engine": "google",
+        "finalResults": 0,
+        "blockedReason": "unusual traffic challenge",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "playwright locator docs",
+    "engine": "brave",
+    "mode": "auto",
+    "results": 0,
+    "top": "",
+    "finalEngine": "brave",
+    "attempts": [
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "captcha",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "playwright locator docs",
+    "engine": "yahoo",
+    "mode": "auto",
+    "results": 5,
+    "top": "https://playwright.dev/docs/locators",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  }
+]

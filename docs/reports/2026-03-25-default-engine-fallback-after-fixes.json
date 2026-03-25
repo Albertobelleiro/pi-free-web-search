@@ -1,0 +1,332 @@
+[
+  {
+    "query": "Bun runtime documentation",
+    "mode": "auto",
+    "results": 5,
+    "top": "https://bun.com/docs/runtime",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "bot challenge",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "captcha",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "Bun runtime documentation",
+    "mode": "disabled",
+    "results": 5,
+    "top": "https://bun.com/docs/runtime",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "bot challenge",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "HTTP 429",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "OpenAI Responses API documentation",
+    "mode": "auto",
+    "results": 5,
+    "top": "https://developers.openai.com/api/reference/responses/overview",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "bot challenge",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "captcha",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "OpenAI Responses API documentation",
+    "mode": "disabled",
+    "results": 5,
+    "top": "https://developers.openai.com/api/reference/responses/overview",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "bot challenge",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "HTTP 429",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "Supabase auth documentation",
+    "mode": "auto",
+    "results": 5,
+    "top": "https://supabase.com/docs/guides/auth",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "bot challenge",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "captcha",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "Supabase auth documentation",
+    "mode": "disabled",
+    "results": 5,
+    "top": "https://supabase.com/docs/guides/auth",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "bot challenge",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "HTTP 429",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "playwright locator docs",
+    "mode": "auto",
+    "results": 5,
+    "top": "https://playwright.dev/docs/locators",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "bot challenge",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "captcha",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "playwright locator docs",
+    "mode": "disabled",
+    "results": 5,
+    "top": "https://playwright.dev/docs/locators",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "bot challenge",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "HTTP 429",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "react npm package documentation",
+    "mode": "auto",
+    "results": 5,
+    "top": "https://generalistprogrammer.com/tutorials/react-npm-package-guide",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "bot challenge",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "captcha",
+        "blockedSource": "browser",
+        "attemptedBrowserFallback": true,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "react npm package documentation",
+    "mode": "disabled",
+    "results": 5,
+    "top": "https://generalistprogrammer.com/tutorials/react-npm-package-guide",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "HTTP 429",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      },
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  }
+]

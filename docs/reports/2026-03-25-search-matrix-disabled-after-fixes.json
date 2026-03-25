@@ -1,0 +1,542 @@
+[
+  {
+    "query": "Bun runtime documentation",
+    "engine": "duckduckgo",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "duckduckgo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "bot challenge",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "Bun runtime documentation",
+    "engine": "bing",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "bing",
+    "attempts": [
+      {
+        "engine": "bing",
+        "finalResults": 0,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "Bun runtime documentation",
+    "engine": "google",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "google",
+    "attempts": [
+      {
+        "engine": "google",
+        "finalResults": 0,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "Bun runtime documentation",
+    "engine": "brave",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "brave",
+    "attempts": [
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "HTTP 429",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "Bun runtime documentation",
+    "engine": "yahoo",
+    "mode": "disabled",
+    "results": 5,
+    "top": "https://bun.com/docs/runtime",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "Bun runtime documentation",
+    "engine": "searxng",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "searxng",
+    "attempts": [
+      {
+        "engine": "searxng",
+        "finalResults": 0,
+        "blockedReason": "HTTP 403",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "OpenAI Responses API documentation",
+    "engine": "duckduckgo",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "duckduckgo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "bot challenge",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "OpenAI Responses API documentation",
+    "engine": "bing",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "bing",
+    "attempts": [
+      {
+        "engine": "bing",
+        "finalResults": 0,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "OpenAI Responses API documentation",
+    "engine": "google",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "google",
+    "attempts": [
+      {
+        "engine": "google",
+        "finalResults": 0,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "OpenAI Responses API documentation",
+    "engine": "brave",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "brave",
+    "attempts": [
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "HTTP 429",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "OpenAI Responses API documentation",
+    "engine": "yahoo",
+    "mode": "disabled",
+    "results": 5,
+    "top": "https://developers.openai.com/api/reference/responses/overview",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "OpenAI Responses API documentation",
+    "engine": "searxng",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "searxng",
+    "attempts": [
+      {
+        "engine": "searxng",
+        "finalResults": 0,
+        "blockedReason": "HTTP 403",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "Supabase auth documentation",
+    "engine": "duckduckgo",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "duckduckgo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "bot challenge",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "Supabase auth documentation",
+    "engine": "bing",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "bing",
+    "attempts": [
+      {
+        "engine": "bing",
+        "finalResults": 0,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "Supabase auth documentation",
+    "engine": "google",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "google",
+    "attempts": [
+      {
+        "engine": "google",
+        "finalResults": 0,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "Supabase auth documentation",
+    "engine": "brave",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "brave",
+    "attempts": [
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "HTTP 429",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "Supabase auth documentation",
+    "engine": "yahoo",
+    "mode": "disabled",
+    "results": 5,
+    "top": "https://supabase.com/docs/guides/auth",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "Supabase auth documentation",
+    "engine": "searxng",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "searxng",
+    "attempts": [
+      {
+        "engine": "searxng",
+        "finalResults": 0,
+        "blockedReason": "HTTP 403",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "playwright locator docs",
+    "engine": "duckduckgo",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "duckduckgo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "bot challenge",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "playwright locator docs",
+    "engine": "bing",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "bing",
+    "attempts": [
+      {
+        "engine": "bing",
+        "finalResults": 0,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "playwright locator docs",
+    "engine": "google",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "google",
+    "attempts": [
+      {
+        "engine": "google",
+        "finalResults": 0,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "playwright locator docs",
+    "engine": "brave",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "brave",
+    "attempts": [
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "HTTP 429",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "playwright locator docs",
+    "engine": "yahoo",
+    "mode": "disabled",
+    "results": 5,
+    "top": "https://playwright.dev/docs/locators",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "playwright locator docs",
+    "engine": "searxng",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "searxng",
+    "attempts": [
+      {
+        "engine": "searxng",
+        "finalResults": 0,
+        "blockedReason": "HTTP 403",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "react npm package documentation",
+    "engine": "duckduckgo",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "duckduckgo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "finalResults": 0,
+        "blockedReason": "bot challenge",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "react npm package documentation",
+    "engine": "bing",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "bing",
+    "attempts": [
+      {
+        "engine": "bing",
+        "finalResults": 0,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "react npm package documentation",
+    "engine": "google",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "google",
+    "attempts": [
+      {
+        "engine": "google",
+        "finalResults": 0,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "react npm package documentation",
+    "engine": "brave",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "brave",
+    "attempts": [
+      {
+        "engine": "brave",
+        "finalResults": 0,
+        "blockedReason": "HTTP 429",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "react npm package documentation",
+    "engine": "yahoo",
+    "mode": "disabled",
+    "results": 5,
+    "top": "https://generalistprogrammer.com/tutorials/react-npm-package-guide",
+    "finalEngine": "yahoo",
+    "attempts": [
+      {
+        "engine": "yahoo",
+        "finalResults": 5,
+        "blockedReason": "",
+        "blockedSource": "",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "query": "react npm package documentation",
+    "engine": "searxng",
+    "mode": "disabled",
+    "results": 0,
+    "top": "",
+    "finalEngine": "searxng",
+    "attempts": [
+      {
+        "engine": "searxng",
+        "finalResults": 0,
+        "blockedReason": "HTTP 403",
+        "blockedSource": "http",
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  }
+]

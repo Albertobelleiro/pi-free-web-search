@@ -23,6 +23,39 @@ function uniqueEngines(values: Array<SearchEngineId | undefined>): SearchEngineI
   return output;
 }
 
+function tokenize(value: string): string[] {
+  return value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3);
+}
+
+function isBlockedOrInterstitialText(text: string): boolean {
+  const normalized = text.toLowerCase();
+  const markers = [
+    "just a moment",
+    "verification successful",
+    "verify you are human",
+    "performing security verification",
+    "captcha",
+    "access denied",
+    "something went wrong, but don",
+  ];
+  return markers.some((marker) => normalized.includes(marker));
+}
+
+function isRelevantContent(queryText: string, title: string, url: string, body: string): boolean {
+  const queryTokens = tokenize(queryText);
+  if (queryTokens.length === 0) return false;
+
+  const haystack = `${title} ${url} ${body.slice(0, 1200)}`.toLowerCase();
+  const matches = queryTokens.filter((token) => haystack.includes(token)).length;
+
+  const requiredMatches = Math.min(2, queryTokens.length);
+  return matches >= requiredMatches;
+}
+
 async function runOfflineSmoke(): Promise<void> {
   console.log("[smoke] running deterministic offline fallback...");
 
@@ -65,7 +98,7 @@ async function main(): Promise<void> {
   console.log(`[smoke] browser=${context.browser.browserLabel} engine=${context.engine.label} mode=${context.mode}`);
   console.log(`[smoke] execution mode=${smokeMode}`);
 
-  const engineCandidates = uniqueEngines([requestedEngine, context.engine.id, "duckduckgo", "bing", "brave"]);
+  const engineCandidates = uniqueEngines([requestedEngine, context.engine.id, "duckduckgo", "bing", "brave", "yahoo"]);
 
   let hadAnyLiveResults = false;
   const searchErrors: string[] = [];
@@ -103,15 +136,27 @@ async function main(): Promise<void> {
       console.log(`[smoke] fetching content (${engine}): ${candidate.url}`);
       try {
         const content = await fetchContent(cwd, candidate.url, smokeMode);
-        if (content.markdown.length >= 50) {
+
+        const combinedText = `${content.title}\n${content.markdown}`;
+        if (isBlockedOrInterstitialText(combinedText)) {
+          const failure = `${engine}: ${candidate.url} (blocked/interstitial content)`;
+          contentFailures.push(failure);
+          console.log(`[smoke] blocked/interstitial content for ${candidate.url}`);
+          continue;
+        }
+
+        const relevant = isRelevantContent(query, content.title, candidate.url, content.markdown);
+        if (content.markdown.length >= 50 && relevant) {
           console.log(`[smoke] content title: ${content.title}`);
           console.log(`[smoke] content url: ${candidate.url}`);
           console.log("[smoke] PASS");
           return;
         }
-        const failure = `${engine}: ${candidate.url} (too short: ${content.markdown.length})`;
+
+        const reason = content.markdown.length < 50 ? `too short: ${content.markdown.length}` : "not relevant enough";
+        const failure = `${engine}: ${candidate.url} (${reason})`;
         contentFailures.push(failure);
-        console.log(`[smoke] content too short (${content.markdown.length}) for ${candidate.url}`);
+        console.log(`[smoke] content rejected for ${candidate.url}: ${reason}`);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         const failure = `${engine}: ${candidate.url} (error: ${message})`;

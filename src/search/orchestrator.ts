@@ -43,6 +43,8 @@ const defaultDeps: SearchRuntimeDeps = {
   searchViaBrowser,
 };
 
+const ENGINE_FALLBACK_ORDER: SearchEngineId[] = ["duckduckgo", "brave", "yahoo", "bing", "google", "searxng"];
+
 interface EngineRunResult {
   engine: SearchEngineDetection;
   searchUrl: string;
@@ -74,10 +76,9 @@ function emitProgress(options: RunSearchOptions, event: SearchProgressEvent): vo
 
 function resolveEngineTemplateForOverride(
   detected: SearchEngineDetection,
-  overrideId: SearchRequest["engine"],
+  overrideId: SearchEngineId,
   searxngBaseUrl?: string,
 ): string | undefined {
-  if (!overrideId) return detected.templateUrl;
   if (overrideId === detected.id) return detected.templateUrl;
   if (overrideId === "searxng" && searxngBaseUrl) {
     return `${searxngBaseUrl.replace(/\/$/, "")}/search?q={searchTerms}`;
@@ -85,18 +86,42 @@ function resolveEngineTemplateForOverride(
   return undefined;
 }
 
+function normalizeEngineId(engine: SearchEngineId | undefined, detectedEngine: SearchEngineDetection): SearchEngineId {
+  if (!engine || engine === "unknown") {
+    return detectedEngine.id === "unknown" ? "duckduckgo" : detectedEngine.id;
+  }
+  return engine;
+}
+
 function buildEngineCandidate(
-  requestedEngine: SearchRequest["engine"],
+  requestedEngine: SearchEngineId,
   detectedEngine: SearchEngineDetection,
   searxngBaseUrl?: string,
 ): SearchEngineDetection {
-  const engineId = requestedEngine || detectedEngine.id;
   return {
     ...detectedEngine,
-    id: engineId,
-    label: engineId,
-    templateUrl: resolveEngineTemplateForOverride(detectedEngine, engineId, searxngBaseUrl),
+    id: requestedEngine,
+    label: requestedEngine,
+    templateUrl: resolveEngineTemplateForOverride(detectedEngine, requestedEngine, searxngBaseUrl),
   };
+}
+
+function buildEngineCandidates(
+  requestedEngine: SearchRequest["engine"],
+  detectedEngine: SearchEngineDetection,
+  searxngBaseUrl?: string,
+): SearchEngineDetection[] {
+  const explicitEngine = requestedEngine && requestedEngine !== "unknown" ? requestedEngine : undefined;
+  if (explicitEngine) {
+    return [buildEngineCandidate(explicitEngine, detectedEngine, searxngBaseUrl)];
+  }
+
+  const primaryEngine = normalizeEngineId(requestedEngine, detectedEngine);
+  const candidateIds = [primaryEngine, ...ENGINE_FALLBACK_ORDER]
+    .filter((engineId, index, list) => list.indexOf(engineId) === index)
+    .filter((engineId) => engineId !== "searxng" || Boolean(searxngBaseUrl));
+
+  return candidateIds.map((engineId) => buildEngineCandidate(engineId, detectedEngine, searxngBaseUrl));
 }
 
 function toSearchAttempt(result: EngineRunResult): SearchAttempt {
@@ -123,6 +148,7 @@ async function runEngine(
   request: SearchRequest,
   engine: SearchEngineDetection,
   mode: EffectiveSearchContext["mode"],
+  rankingQuery: string,
   options: RunSearchOptions,
 ): Promise<EngineRunResult> {
   const searchUrl = buildSearchUrl(engine, request.query);
@@ -149,7 +175,7 @@ async function runEngine(
         signal: options.signal,
         timeoutMs: config.httpTimeoutMs ?? 10000,
       });
-      rankedHttp = rerankResults(httpResults, request.query, request.domainFilter);
+      rankedHttp = rerankResults(httpResults, rankingQuery, request.domainFilter);
       emitProgress(options, {
         phase: "http-search",
         message: `HTTP search found ${rankedHttp.length} result(s) via ${engine.label}`,
@@ -191,8 +217,9 @@ async function runEngine(
 
   const threshold = config.browserFallbackThreshold ?? 0.55;
   const qualityScore = rankedHttp.length / Math.max(1, request.numResults);
-  const browserAllowed = mode !== "disabled";
-  const shouldEscalate = !blockedReason && browserAllowed && (rankedHttp.length === 0 || qualityScore < threshold);
+  const browserAllowed = mode !== "disabled" && mode !== "ask";
+  const blockedByBrowser = blockedSource === "browser";
+  const shouldEscalate = browserAllowed && !blockedByBrowser && (blockedSource === "http" || rankedHttp.length === 0 || qualityScore < threshold);
 
   if (shouldEscalate) {
     attemptedBrowserFallback = true;
@@ -250,7 +277,7 @@ async function runEngine(
   });
 
   const mergedCandidates = browserResults.length > 0 ? [...rankedHttp, ...browserResults] : rankedHttp;
-  const reranked = rerankResults(mergedCandidates, request.query, request.domainFilter).slice(0, request.numResults);
+  const reranked = rerankResults(mergedCandidates, rankingQuery, request.domainFilter).slice(0, request.numResults);
   const error = reranked.length === 0 && httpError && browserError
     ? `Search failed via HTTP and browser fallback: ${summarizeError(httpError)} | ${summarizeError(browserError)}`
     : httpError
@@ -293,30 +320,67 @@ export async function runSearch(cwd: string, request: SearchRequest, options: Ru
   throwIfAborted(options.signal);
   emitProgress(options, { phase: "detecting", message: "Detecting browser and search engine" });
 
+  const query = request.query.trim();
+  if (!query) throw new Error("Search query must not be empty");
+
+  const normalizedRequest: SearchRequest = { ...request, query };
+  const rankingQuery = normalizedRequest.context ? `${normalizedRequest.query} ${normalizedRequest.context}`.trim() : normalizedRequest.query;
+
   const config = runtime.loadConfig(cwd);
   const browser = await runtime.detectBrowser(config);
   const detectedEngine = await runtime.detectSearchEngine(browser, config);
-  const mode = request.mode || config.mode || "auto";
-  const activeEngine = buildEngineCandidate(request.engine, detectedEngine, config.searxngBaseUrl);
-  const finalAttempt = await runEngine(runtime, browser, config, request, activeEngine, mode, options);
-  const attempts: SearchAttempt[] = [toSearchAttempt(finalAttempt)];
-  const results = finalAttempt.results;
-  const usedBrowserFallback = finalAttempt.usedBrowserFallback;
+  const mode = normalizedRequest.mode || config.mode || "auto";
+  const engineCandidates = buildEngineCandidates(normalizedRequest.engine, detectedEngine, config.searxngBaseUrl);
+
+  const attempts: SearchAttempt[] = [];
+  const collectedResults: SearchResponse["results"] = [];
+  let usedBrowserFallback = false;
+  let finalEngine = engineCandidates[0] || buildEngineCandidate("duckduckgo", detectedEngine, config.searxngBaseUrl);
+
+  for (let index = 0; index < engineCandidates.length; index += 1) {
+    const candidate = engineCandidates[index];
+    if (index > 0) {
+      emitProgress(options, {
+        phase: "detecting",
+        message: `Trying fallback engine (${candidate.label})`,
+        metrics: { attempt: index + 1, engine: candidate.id, totalCandidates: engineCandidates.length },
+      });
+    }
+
+    const attempt = await runEngine(runtime, browser, config, normalizedRequest, candidate, mode, rankingQuery, options);
+    attempts.push(toSearchAttempt(attempt));
+    if (attempt.usedBrowserFallback) usedBrowserFallback = true;
+
+    if (attempt.results.length === 0) continue;
+
+    collectedResults.push(...attempt.results);
+    finalEngine = candidate;
+
+    const explicitEngineSelected = Boolean(normalizedRequest.engine && normalizedRequest.engine !== "unknown");
+    const shouldContinueForCoverage = !explicitEngineSelected && attempt.results.length < normalizedRequest.numResults && Boolean(attempt.blockedReason);
+    if (!shouldContinueForCoverage) break;
+  }
+
+  const results = rerankResults(collectedResults, rankingQuery, normalizedRequest.domainFilter).slice(0, normalizedRequest.numResults);
+  if (results.length > 0) {
+    const topEngine = engineCandidates.find((engine) => engine.id === results[0].sourceEngine);
+    if (topEngine) finalEngine = topEngine;
+  }
 
   emitProgress(options, {
     phase: "done",
-    message: `Search complete with ${results.length} result(s) via ${activeEngine.label}`,
+    message: `Search complete with ${results.length} result(s) via ${finalEngine.label}`,
     metrics: {
       finalResults: results.length,
       usedBrowserFallback,
       attempts: attempts.length,
-      engine: activeEngine.id,
+      engine: finalEngine.id,
     },
   });
 
   return {
-    context: { browser, engine: activeEngine, mode },
-    query: request.query,
+    context: { browser, engine: finalEngine, mode },
+    query: normalizedRequest.query,
     results,
     usedBrowserFallback,
     attempts,

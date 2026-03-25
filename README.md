@@ -123,7 +123,7 @@ Project-local override is also supported:
 
 | Field | Type | Default | Notes |
 |---|---|---|---|
-| `mode` | `auto \| visible \| headless \| ask \| disabled` | `auto` | Global browser execution policy |
+| `mode` | `auto \| visible \| headless \| ask \| disabled` | `auto` | Global browser execution policy (`ask` prompts before browser automation in Pi UI) |
 | `preferredBrowser` | browser family | detected | Force browser family |
 | `preferredEngine` | search engine id | `duckduckgo` | Force search engine |
 | `searchTemplateUrl` | string | per engine | Custom search URL template |

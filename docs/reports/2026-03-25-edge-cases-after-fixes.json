@@ -1,0 +1,99 @@
+[
+  {
+    "name": "empty-query",
+    "request": {
+      "query": "",
+      "numResults": 5,
+      "mode": "disabled",
+      "engine": "brave"
+    },
+    "ok": false,
+    "error": "Search query must not be empty"
+  },
+  {
+    "name": "whitespace-query",
+    "request": {
+      "query": "   ",
+      "numResults": 5,
+      "mode": "disabled",
+      "engine": "brave"
+    },
+    "ok": false,
+    "error": "Search query must not be empty"
+  },
+  {
+    "name": "unknown-engine",
+    "request": {
+      "query": "Bun docs",
+      "numResults": 5,
+      "mode": "disabled",
+      "engine": "unknown"
+    },
+    "ok": true,
+    "results": 5,
+    "top": "https://bun.com/docs",
+    "contextMode": "disabled",
+    "engine": "yahoo",
+    "attempts": [
+      {
+        "engine": "duckduckgo",
+        "searchUrl": "https://duckduckgo.com/html/?q=Bun%20docs",
+        "httpResults": 0,
+        "browserResults": 0,
+        "finalResults": 0,
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false,
+        "blockedReason": "bot challenge",
+        "blockedSource": "http",
+        "httpStatus": 202
+      },
+      {
+        "engine": "brave",
+        "searchUrl": "https://search.brave.com/search?q=Bun%20docs",
+        "httpResults": 0,
+        "browserResults": 0,
+        "finalResults": 0,
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false,
+        "blockedReason": "HTTP 429",
+        "blockedSource": "http",
+        "pageTitle": "PoW Captcha - Brave Search",
+        "httpStatus": 429
+      },
+      {
+        "engine": "yahoo",
+        "searchUrl": "https://search.yahoo.com/search?p=Bun%20docs",
+        "httpResults": 7,
+        "browserResults": 0,
+        "finalResults": 5,
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  },
+  {
+    "name": "ask-mode",
+    "request": {
+      "query": "OpenAI Responses API documentation",
+      "numResults": 5,
+      "mode": "ask",
+      "engine": "google"
+    },
+    "ok": true,
+    "results": 0,
+    "top": "",
+    "contextMode": "ask",
+    "engine": "google",
+    "attempts": [
+      {
+        "engine": "google",
+        "searchUrl": "https://www.google.com/search?q=OpenAI%20Responses%20API%20documentation",
+        "httpResults": 0,
+        "browserResults": 0,
+        "finalResults": 0,
+        "attemptedBrowserFallback": false,
+        "usedBrowserFallback": false
+      }
+    ]
+  }
+]
