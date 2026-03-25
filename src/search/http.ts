@@ -27,6 +27,16 @@ function resolveUrl(href: string | null | undefined, base: string): string | und
   }
 }
 
+function decodeBingRedirectTarget(value: string): string | undefined {
+  try {
+    const normalized = value.startsWith("a1") ? value.slice(2) : value;
+    const decoded = Buffer.from(normalized, "base64").toString("utf8");
+    return /^https?:/i.test(decoded) ? decoded : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function normalizeResultUrl(url: string, engine: SearchEngineId): string | undefined {
   try {
     const parsed = new URL(url);
@@ -41,6 +51,13 @@ function normalizeResultUrl(url: string, engine: SearchEngineId): string | undef
       if (parsed.pathname.startsWith("/search") || parsed.pathname.startsWith("/preferences")) {
         return undefined;
       }
+    }
+
+    if (engine === "bing" && parsed.hostname.includes("bing.com") && parsed.pathname.startsWith("/ck/a")) {
+      const target = parsed.searchParams.get("u") || parsed.searchParams.get("url") || parsed.searchParams.get("redirectUrl");
+      if (!target) return undefined;
+      const decoded = decodeBingRedirectTarget(target) || decodeURIComponent(target);
+      return /^https?:/i.test(decoded) ? decoded : undefined;
     }
 
     if (engine === "duckduckgo" && parsed.hostname.includes("duckduckgo.com") && parsed.pathname === "/l/") {
@@ -105,7 +122,7 @@ function parseBing(html: string, base: string): SearchResult[] {
     .map((node, index) => {
       const link = node.querySelector("h2 a");
       const url = resolveResultUrl(link?.getAttribute("href"), base, "bing");
-      if (!url) return undefined;
+      if (!url || isInternalSearchUrl(url, "bing")) return undefined;
       return {
         title: cleanText(link?.textContent || url),
         url,
@@ -155,7 +172,7 @@ function parseYahoo(html: string, base: string): SearchResult[] {
     .map((node, index) => {
       const link = node.querySelector("a");
       const url = resolveResultUrl(link?.getAttribute("href"), base, "yahoo");
-      if (!url) return undefined;
+      if (!url || isInternalSearchUrl(url, "yahoo")) return undefined;
       const snippetNode = node.querySelector(".compText, p");
       return {
         title: cleanText(link?.textContent || url),
@@ -201,12 +218,15 @@ function parseBrave(html: string, base: string): SearchResult[] {
 
 function isInternalSearchUrl(url: string, engine: SearchEngineId): boolean {
   try {
-    const hostname = new URL(url).hostname.toLowerCase();
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
     if (engine === "google") return hostname.includes("google.");
     if (engine === "bing") return hostname.includes("bing.");
     if (engine === "duckduckgo") return hostname.includes("duckduckgo.");
     if (engine === "brave") return hostname.includes("search.brave.com");
-    if (engine === "yahoo") return hostname.includes("yahoo.");
+    if (engine === "yahoo") {
+      return hostname.endsWith("search.yahoo.com") || hostname.endsWith("video.search.yahoo.com") || hostname.includes("yahoo.");
+    }
     return false;
   } catch {
     return true;
@@ -268,6 +288,7 @@ export class SearchEngineBlockedError extends Error {
     public readonly engine: SearchEngineId,
     public readonly source: "http" | "browser",
     public readonly reason: string,
+    public readonly metadata: Record<string, string | number | boolean | undefined> = {},
   ) {
     super(`${engine} ${source} search blocked: ${reason}`);
     this.name = "SearchEngineBlockedError";
@@ -292,6 +313,7 @@ export function detectBlockedSearchResponse(
   if (engine === "brave" && combined.includes("captcha - brave search")) return "captcha";
   if (engine === "google" && combined.includes("unusual traffic")) return "unusual traffic challenge";
   if (engine === "duckduckgo" && combined.includes("unfortunately, bots use duckduckgo too")) return "bot challenge";
+  if (engine === "duckduckgo" && title.trim() === "duckduckgo" && combined.includes("duckduckgo")) return "unexpected homepage";
 
   if (combined.includes("captcha")) return "captcha";
   if (combined.includes("too many requests")) return "too many requests";
@@ -337,9 +359,13 @@ export async function searchViaHttp(
   );
 
   throwIfAborted(options.signal);
+  const title = response.html.match(/<title>(.*?)<\/title>/i)?.[1]?.trim();
   const blockedReason = detectBlockedSearchResponse(engine, response.status, response.html);
   if (blockedReason) {
-    throw new SearchEngineBlockedError(engine, "http", blockedReason);
+    throw new SearchEngineBlockedError(engine, "http", blockedReason, {
+      status: response.status,
+      title,
+    });
   }
 
   return parseSearchHtml(response.html, url, engine);

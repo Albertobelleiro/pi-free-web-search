@@ -30,3 +30,24 @@ test("supports mixed include and exclude domain filters", () => {
   expect(ranked.length).toBe(1);
   expect(ranked[0].url).toBe("https://bun.sh/docs");
 });
+
+test("boosts official documentation for docs-style queries", () => {
+  const docsResults: SearchResult[] = [
+    { title: "OpenAI Responses API", url: "https://developers.openai.com/api/reference/responses", snippet: "Official OpenAI API reference", sourceEngine: "google", rank: 3, score: 0, domain: "developers.openai.com" },
+    { title: "Random blog post", url: "https://medium.com/example/openai-responses", snippet: "Community overview", sourceEngine: "google", rank: 1, score: 0, domain: "medium.com" },
+  ];
+
+  const ranked = rerankResults(docsResults, "OpenAI Responses API documentation");
+  expect(ranked[0].domain).toBe("developers.openai.com");
+});
+
+test("filters low-value search landing pages for docs-style queries", () => {
+  const docsResults: SearchResult[] = [
+    { title: "Videos", url: "https://video.search.yahoo.com/search/video?p=bun+runtime+documentation", snippet: "YouTube", sourceEngine: "yahoo", rank: 1, score: 0, domain: "video.search.yahoo.com" },
+    { title: "Bun Runtime - Bun", url: "https://bun.com/docs/runtime", snippet: "Official Bun runtime docs", sourceEngine: "yahoo", rank: 2, score: 0, domain: "bun.com" },
+  ];
+
+  const ranked = rerankResults(docsResults, "Bun runtime documentation");
+  expect(ranked.length).toBe(1);
+  expect(ranked[0].domain).toBe("bun.com");
+});

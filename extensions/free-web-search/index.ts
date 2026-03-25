@@ -14,6 +14,7 @@ const SearchParams = Type.Object({
   engine: Type.Optional(StringEnum(["google", "bing", "duckduckgo", "brave", "yahoo", "searxng", "unknown"] as const, { description: "Optional search engine override" })),
   mode: Type.Optional(StringEnum(["auto", "visible", "headless", "ask", "disabled"] as const, { description: "Browser mode override" })),
   includeContent: Type.Optional(Type.Boolean({ description: "Fetch readable content for top results" })),
+  debug: Type.Optional(Type.Boolean({ description: "Include detailed search/debug logs in the output" })),
   domainFilter: Type.Optional(Type.Array(Type.String({ description: "Domain filter; prefix with - to exclude" }))),
   context: Type.Optional(Type.String({ description: "User task context to help query shaping" })),
 });
@@ -39,6 +40,16 @@ function summarizeSnippet(text: string, max = 360): string {
   return `${normalized.slice(0, max - 1)}…`;
 }
 
+function formatEngineLabel(engine?: string): string {
+  if (!engine) return "search engine";
+  if (engine === "duckduckgo") return "DuckDuckGo";
+  if (engine === "bing") return "Bing";
+  if (engine === "google") return "Google";
+  if (engine === "yahoo") return "Yahoo";
+  if (engine === "brave") return "Brave";
+  return engine;
+}
+
 function summarizeAttempts(attempts: Array<any> = []): string | undefined {
   if (attempts.length === 0) return undefined;
   return attempts
@@ -50,12 +61,46 @@ function summarizeAttempts(attempts: Array<any> = []): string | undefined {
     .join(" -> ");
 }
 
+function blockedSummary(attempts: Array<any> = []): string | undefined {
+  if (attempts.length !== 1) return undefined;
+  const attempt = attempts[0];
+  if (!attempt?.blockedReason) return undefined;
+  return `${formatEngineLabel(attempt.engine)} blocked this query (${attempt.blockedReason})`;
+}
+
 function fallbackLabel(details: any): string | undefined {
   const attempts = Array.isArray(details?.attempts) ? details.attempts : [];
   const initialEngine = attempts[0]?.engine;
   const finalEngine = details?.context?.engine?.id;
   if (!initialEngine || !finalEngine || initialEngine === finalEngine) return undefined;
   return `fallback from ${initialEngine}`;
+}
+
+function formatMetrics(metrics: Record<string, unknown> = {}): string {
+  const entries = Object.entries(metrics)
+    .filter(([, value]) => value !== undefined)
+    .map(([key, value]) => `${key}=${String(value)}`);
+  return entries.length > 0 ? ` [${entries.join(", ")}]` : "";
+}
+
+function buildDebugSection(progressLog: Array<{ phase: string; message: string; metrics?: Record<string, unknown> }>, attempts: Array<any>): string[] {
+  const lines: string[] = [];
+  lines.push("## Debug log");
+  for (const entry of progressLog) {
+    lines.push(`- ${entry.phase}: ${entry.message}${formatMetrics(entry.metrics)}`);
+  }
+  if (attempts.length > 0) {
+    lines.push("", "## Attempt details");
+    for (const attempt of attempts) {
+      lines.push(`- engine=${attempt.engine} searchUrl=${attempt.searchUrl}`);
+      lines.push(`  httpResults=${attempt.httpResults} browserResults=${attempt.browserResults} finalResults=${attempt.finalResults} attemptedBrowserFallback=${attempt.attemptedBrowserFallback} usedBrowserFallback=${attempt.usedBrowserFallback}`);
+      if (attempt.blockedReason) lines.push(`  blocked=${attempt.blockedSource || "unknown"} (${attempt.blockedReason})`);
+      if (attempt.httpStatus) lines.push(`  httpStatus=${attempt.httpStatus}`);
+      if (attempt.pageTitle) lines.push(`  pageTitle=${attempt.pageTitle}`);
+      if (attempt.error) lines.push(`  error=${attempt.error}`);
+    }
+  }
+  return lines;
 }
 
 function getTextComponent(lastComponent: unknown): Text {
@@ -103,7 +148,13 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
     ],
     parameters: SearchParams,
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
+      const progressLog: Array<{ phase: string; message: string; metrics?: Record<string, unknown> }> = [];
       const emitProgress = (message: string, details: Record<string, unknown> = {}) => {
+        progressLog.push({
+          phase: String(details.phase || "unknown"),
+          message,
+          metrics: details,
+        });
         onUpdate?.({
           content: [{ type: "text", text: message }],
           details: { message, ...details },
@@ -130,10 +181,13 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
 
         const lines: string[] = [];
         const attemptsSummary = summarizeAttempts(search.attempts);
+        const blockedMessage = blockedSummary(search.attempts);
         const fallback = fallbackLabel(search);
         lines.push(`# Search: ${search.query}`);
         lines.push(`Context: browser=${search.context.browser.browserLabel}, engine=${search.context.engine.label}${fallback ? ` (${fallback})` : ""}, mode=${search.context.mode}, browserFallback=${search.usedBrowserFallback ? "yes" : "no"}`);
-        if (attemptsSummary && (search.attempts.length > 1 || search.attempts.some((attempt) => attempt.blockedReason || attempt.error))) {
+        if (blockedMessage) {
+          lines.push(`Status: ${blockedMessage}`);
+        } else if (attemptsSummary && (search.attempts.length > 1 || search.attempts.some((attempt) => attempt.blockedReason || attempt.error))) {
           lines.push(`Attempts: ${attemptsSummary}`);
         }
         lines.push("");
@@ -190,9 +244,13 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
           }
         }
 
+        if (params.debug) {
+          lines.push("", ...buildDebugSection(progressLog, search.attempts));
+        }
+
         return {
           content: [{ type: "text", text: maybeTruncate(lines.join("\n")) }],
-          details: search,
+          details: { ...search, debug: params.debug, progressLog },
         };
       } catch (error) {
         if (signal?.aborted || isAbortError(error)) {
@@ -211,6 +269,7 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
       if (args.engine) text += theme.fg("dim", ` · ${args.engine}`);
       if (args.mode) text += theme.fg("dim", ` · ${args.mode}`);
       if (args.includeContent) text += theme.fg("warning", " · content");
+      if (args.debug) text += theme.fg("warning", " · debug");
       textComponent.setText(text);
       return textComponent;
     },
@@ -240,16 +299,27 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
       const path = details?.usedBrowserFallback ? "browser" : "http";
       const fallback = fallbackLabel(details);
       const attemptsSummary = summarizeAttempts(details?.attempts);
+      const blockedMessage = blockedSummary(details?.attempts);
       let text = theme.fg("success", `${count} result${count === 1 ? "" : "s"}`);
       text += theme.fg("dim", ` · ${engine} · ${path} · ${browser}`);
       if (fallback) text += theme.fg("warning", ` · ${fallback}`);
 
-      if (!expanded && (count > 0 || attemptsSummary)) {
+      if (!expanded && (count > 0 || attemptsSummary || blockedMessage)) {
         text += theme.fg("muted", ` (${keyHint("app.tools.expand", "details")})`);
+      }
+
+      if (expanded && blockedMessage) {
+        text += `\n${theme.fg("warning", blockedMessage)}`;
       }
 
       if (expanded && attemptsSummary) {
         text += `\n${theme.fg("muted", `Attempts: ${attemptsSummary}`)}`;
+        for (const attempt of details?.attempts || []) {
+          const extra = [attempt?.httpStatus ? `status=${attempt.httpStatus}` : "", attempt?.pageTitle ? `title=${attempt.pageTitle}` : ""]
+            .filter(Boolean)
+            .join(" · ");
+          if (extra) text += `\n${theme.fg("dim", `   ${attempt.engine}: ${extra}`)}`;
+        }
       }
 
       if (expanded && Array.isArray(details?.results)) {
@@ -360,6 +430,40 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
       const result = await runSearch(ctx.cwd, { query, numResults: 3, includeContent: false });
       const top = result.results[0];
       ctx.ui.notify(`Top result: ${top?.title || "none"}\n${top?.url || ""}`, "info");
+    },
+  });
+
+  pi.registerCommand("free-search-debug", {
+    description: "Run a search and show detailed debug logs: /free-search-debug <query>",
+    handler: async (args, ctx) => {
+      const query = args.trim();
+      if (!query) {
+        ctx.ui.notify("Usage: /free-search-debug <query>", "warning");
+        return;
+      }
+
+      const progressLog: Array<{ phase: string; message: string; metrics?: Record<string, unknown> }> = [];
+      const search = await runSearch(
+        ctx.cwd,
+        { query, numResults: 5, includeContent: false },
+        {
+          onProgress: (event) => {
+            progressLog.push({ phase: event.phase, message: event.message, metrics: event.metrics || {} });
+          },
+        },
+      );
+
+      const lines = [
+        `Query: ${query}`,
+        `Browser: ${search.context.browser.browserLabel}`,
+        `Engine: ${search.context.engine.label}`,
+        `Mode: ${search.context.mode}`,
+        `Results: ${search.results.length}`,
+        "",
+        ...buildDebugSection(progressLog, search.attempts),
+      ];
+
+      ctx.ui.notify(maybeTruncate(lines.join("\n")), "info");
     },
   });
 }

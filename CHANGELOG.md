@@ -9,12 +9,16 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 - `/pi-search` prompt template for steering the current Pi session/model to use `free_web_search` and `free_fetch_content` for documentation research.
+- `debug: true` support on `free_web_search` plus `/free-search-debug <query>` for inspecting real search attempts, block reasons, URLs, titles, and progress logs.
 
 ### Changed
 - Browser detection is now used only for automation; search defaults to DuckDuckGo unless the user explicitly overrides the engine.
+- Documentation-style queries now prefer official docs/reference domains and aggressively demote low-value search/video/community pages.
 
 ### Fixed
 - Searches no longer inherit Brave/Bing/other browser search-engine defaults just because that browser is installed or active on the computer.
+- Bing redirect URLs are now unwrapped correctly instead of leaking raw `bing.com/ck/a` tracking links into results.
+- Yahoo internal video/search pages are filtered so docs queries surface real documentation first.
 
 ## [0.2.0] - 2026-03-24
 

@@ -116,9 +116,10 @@ export async function searchViaBrowser(
 ): Promise<SearchResult[]> {
   const html = await fetchPageHtmlViaBrowser(browser, mode, searchUrl, options);
   const engine = inferEngineFromUrl(searchUrl);
+  const title = html.match(/<title>(.*?)<\/title>/i)?.[1]?.trim();
   const blockedReason = detectBlockedSearchResponse(engine, undefined, html);
   if (blockedReason) {
-    throw new SearchEngineBlockedError(engine, "browser", blockedReason);
+    throw new SearchEngineBlockedError(engine, "browser", blockedReason, { title });
   }
   return parseSearchHtml(html, searchUrl, engine);
 }
