@@ -307,6 +307,14 @@ export function isSearchEngineBlockedError(error: unknown): error is SearchEngin
   return error instanceof SearchEngineBlockedError;
 }
 
+/**
+ * Detects blocked responses from search engine result pages (SERPs).
+ *
+ * This is intentionally separate from `detectBlockedContentResponse` in content/fetch.ts,
+ * which checks for content-page blocking (403, captcha, interstitials, login redirects).
+ * Search engines have their own blocking patterns: unusual traffic challenges, bot
+ * detection pages, and homepage redirects instead of search results.
+ */
 export function detectBlockedSearchResponse(
   engine: SearchEngineId,
   status: number | undefined,
