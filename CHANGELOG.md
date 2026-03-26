@@ -7,6 +7,30 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-26
+
+### Added
+- Explicit output detail controls for token shaping:
+  - `free_web_search.detail = "lean" | "full"`
+  - `free_fetch_content.detail = "summary" | "full"`
+- Formatter-level tests covering lean/full search output, summary/full fetch output, debug visibility, and capped `includeContent=true` behavior.
+- Personalized research profiles with dedicated prompt templates:
+  - `/pi-search-cheap`
+  - `/pi-search-balanced`
+  - `/pi-search-deep`
+  - `/pi-search-debug`
+- Additional budget-aware skills:
+  - `free-web-researcher-cheap`
+  - `free-web-researcher-balanced`
+  - `free-web-researcher-deep`
+
+### Changed
+- `free_web_search` now defaults to lean output: compact result blocks, shorter snippets, and no verbose context/debug narration unless explicitly requested.
+- `includeContent=true` now stays token-efficient by default, returning tightly capped source summaries in lean mode while preserving richer excerpts in full mode.
+- `free_fetch_content` now defaults to a short summary/excerpt instead of returning the full extracted markdown body.
+- Output shaping logic was split into focused formatting helpers so retrieval logic, extraction, and presentation are less coupled.
+- The original `/pi-search` prompt now acts as the balanced default profile.
+
 ## [0.3.1] - 2026-03-26
 
 ### Fixed
@@ -83,7 +107,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   - startup status indicator
 - Initial tests for parser, ranking, detection, and content extraction.
 
-[Unreleased]: https://github.com/Albertobelleiro/pi-free-web-search/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/Albertobelleiro/pi-free-web-search/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Albertobelleiro/pi-free-web-search/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/Albertobelleiro/pi-free-web-search/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Albertobelleiro/pi-free-web-search/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Albertobelleiro/pi-free-web-search/compare/v0.1.0...v0.2.0

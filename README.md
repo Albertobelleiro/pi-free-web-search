@@ -23,14 +23,21 @@ Free, browser-aware web search and readable content extraction for [Pi coding ag
 
 | Capability | Name | Description |
 |---|---|---|
-| Tool | `free_web_search` | Natural-language web search with HTTP-first and browser fallback pipeline |
-| Tool | `free_fetch_content` | Readable content extraction from a URL with browser fallback for JS-heavy pages |
+| Tool | `free_web_search` | Natural-language web search with HTTP-first and browser fallback pipeline, now lean-by-default for lower token usage |
+| Tool | `free_fetch_content` | Readable content extraction from a URL with browser fallback for JS-heavy pages, now summary-by-default |
 | Command | `/free-search-info` | Shows detected browser, engine, mode, and executable |
 | Command | `/free-search-test <query>` | End-to-end smoke test from inside Pi |
 | Command | `/free-search-debug <query>` | Runs a real search and shows detailed debug logs/attempt metadata |
 | Command | `/free-search-status` | Shows recent per-engine health, latency, failures, and cooldown state for the current session |
-| Prompt | `/pi-search <topic>` | Short research template that steers the current session/model to use `free_web_search` and `free_fetch_content` |
-| Skill | `free-web-researcher` | Guidance for robust research flow with these tools |
+| Prompt | `/pi-search <topic>` | Balanced default research template |
+| Prompt | `/pi-search-cheap <topic>` | Lowest-token research template |
+| Prompt | `/pi-search-balanced <topic>` | Moderate-cost research template |
+| Prompt | `/pi-search-deep <topic>` | High-fidelity research template |
+| Prompt | `/pi-search-debug <topic>` | Diagnostic/debug research template |
+| Skill | `free-web-researcher` | General routing guidance across budget profiles |
+| Skill | `free-web-researcher-cheap` | Lowest-token research workflow |
+| Skill | `free-web-researcher-balanced` | Best default quality/cost trade-off |
+| Skill | `free-web-researcher-deep` | Higher-cost deep-research workflow |
 
 ---
 
@@ -50,11 +57,20 @@ That's it. The extension, tools, commands, skill, and prompt are all registered 
 pi update pi-free-web-search
 ```
 
-### Use the prompt shortcut
+### Use the prompt shortcuts
 
 ```text
+# Balanced default
 /pi-search exact Bun documentation for test reporters
-/pi-search study the Playwright locator docs and explain best practices
+
+# Cheapest route
+/pi-search-cheap study the Playwright locator docs and explain best practices
+
+# Deeper research
+/pi-search-deep compare Bun test reporters and exact CLI flags across docs pages
+
+# Retrieval diagnostics
+/pi-search-debug why is this query falling back to browser mode
 ```
 
 ### Alternative install methods
@@ -82,6 +98,7 @@ pi install .
 6. Escalate to browser automation only if needed and allowed.
 7. Merge/dedupe/rerank final results.
 8. Optionally fetch top-result content with readable extraction.
+9. Shape the returned tool output for token efficiency (`lean`/`summary`) or deeper reading (`full`).
 
 ---
 
@@ -159,15 +176,68 @@ Project-local override is also supported:
 
 ---
 
+## Personalized research profiles
+
+The package now supports multiple research profiles matched to how much model/token expense you want to spend:
+
+- **Cheap**: lowest-token path, quick discovery, minimal source reading
+- **Balanced**: default path, strong evidence with moderate cost
+- **Deep**: richer excerpts and fuller page reads for higher confidence
+- **Diagnostic**: debug-oriented investigation of search/fallback behavior
+
+You can activate these profiles through the dedicated prompt templates and skills, while still using the same underlying tools.
+
+## Token-efficient output modes
+
+Retrieval quality is unchanged. The search, ranking, fallback, and extraction pipeline still works the same internally. What changed is the default tool **presentation**:
+
+- `free_web_search` now defaults to `detail: "lean"`
+  - compact result list
+  - short snippets
+  - no verbose context/fallback narration unless needed
+  - when `includeContent: true`, returns tightly capped source summaries by default
+- `free_fetch_content` now defaults to `detail: "summary"`
+  - short readable summary/excerpt
+  - full extracted markdown only when explicitly requested
+
+Use `detail: "full"` when you want the old high-fidelity style output for deep research, auditing, or debugging.
+
 ## Usage examples in Pi
 
 ```ts
+// Cheapest/default path
 free_web_search({ query: "Bun runtime documentation", numResults: 5 })
-free_web_search({ query: "React server components caching", includeContent: true })
-free_web_search({ query: "Supabase RLS docs", domainFilter: ["supabase.com"] })
-free_web_search({ query: "OpenAI Responses API reference", engine: "yahoo", mode: "headless", debug: true })
 free_fetch_content({ url: "https://bun.sh/docs" })
+
+// Lean search + small source summaries
+free_web_search({ query: "React server components caching", includeContent: true })
+
+// Full-fidelity search output
+free_web_search({ query: "Supabase RLS docs", domainFilter: ["supabase.com"], detail: "full" })
+
+// Full article body
+free_fetch_content({ url: "https://bun.sh/docs", detail: "full" })
+
+// Deep debugging stays opt-in
+free_web_search({ query: "OpenAI Responses API reference", engine: "yahoo", mode: "headless", detail: "full", debug: true })
 ```
+
+### Recommended usage patterns
+
+- **Cheap exploration:** `free_web_search({ query })`
+- **Search, then read selectively:** run lean search first, then call `free_fetch_content({ url })` only for the most promising hit
+- **Broader but still cheap:** `free_web_search({ query, includeContent: true })`
+- **Deep research / exact wording matters:** add `detail: "full"`
+- **Operational debugging:** add `debug: true` (best paired with `detail: "full"`)
+
+### Prompt + skill matrix
+
+| Goal | Prompt template | Skill | Typical tool shape |
+|---|---|---|---|
+| Lowest possible cost | `/pi-search-cheap` | `free-web-researcher-cheap` | lean search, summary fetch, minimal reading |
+| Best default trade-off | `/pi-search` or `/pi-search-balanced` | `free-web-researcher-balanced` | lean search, selective includeContent/fetch |
+| Deep study | `/pi-search-deep` | `free-web-researcher-deep` | full search/fetch where justified |
+| Debugging search behavior | `/pi-search-debug` | `free-web-researcher` | full + debug, diagnostic reading |
 
 For manual diagnostics inside Pi:
 

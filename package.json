@@ -1,6 +1,6 @@
 {
   "name": "pi-free-web-search",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Free, hybrid, browser-aware web search and content extraction package for Pi coding agent",
   "type": "module",
   "license": "MIT",
@@ -63,7 +63,10 @@
       "extensions/free-web-search/index.ts"
     ],
     "skills": [
-      "skills/free-web-researcher"
+      "skills/free-web-researcher",
+      "skills/free-web-researcher-cheap",
+      "skills/free-web-researcher-balanced",
+      "skills/free-web-researcher-deep"
     ],
     "prompts": [
       "prompts"

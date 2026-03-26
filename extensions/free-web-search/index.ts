@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, keyHint, truncateHead } from "@mariozechner/pi-coding-agent";
+import { keyHint } from "@mariozechner/pi-coding-agent";
 import { StringEnum } from "@mariozechner/pi-ai";
 import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
@@ -8,12 +8,27 @@ import { loadConfig } from "../../src/config";
 import { getSessionEngineHealthSnapshot, runSearch, resolveSearchContext } from "../../src/search/orchestrator";
 import type { BrowserMode } from "../../src/types";
 import { isAbortError } from "../../src/util/abort";
+import {
+  blockedSummary,
+  buildDebugSection,
+  fallbackLabel,
+  formatDuration,
+  formatEngineLabel,
+  formatFetchToolText,
+  formatSearchToolText,
+  maybeTruncate,
+  summarizeAttempts,
+  summarizeSnippet,
+  type FetchDetailMode,
+  type SearchDetailMode,
+} from "./formatting";
 
 const SearchParams = Type.Object({
   query: Type.String({ minLength: 1, description: "Natural language search query" }),
   numResults: Type.Optional(Type.Integer({ minimum: 1, maximum: 10, description: "Maximum results (default 5)" })),
   engine: Type.Optional(StringEnum(["google", "bing", "duckduckgo", "brave", "yahoo", "searxng"] as const, { description: "Optional search engine override" })),
   mode: Type.Optional(StringEnum(["auto", "visible", "headless", "ask", "disabled"] as const, { description: "Browser mode override" })),
+  detail: Type.Optional(StringEnum(["lean", "full"] as const, { description: "Output detail level (default lean for token efficiency)" })),
   includeContent: Type.Optional(Type.Boolean({ description: "Fetch readable content for top results" })),
   debug: Type.Optional(Type.Boolean({ description: "Include detailed search/debug logs in the output" })),
   domainFilter: Type.Optional(Type.Array(Type.String({ description: "Domain filter; prefix with - to exclude" }))),
@@ -23,54 +38,8 @@ const SearchParams = Type.Object({
 const FetchParams = Type.Object({
   url: Type.String({ description: "URL to extract readable content from" }),
   mode: Type.Optional(StringEnum(["auto", "visible", "headless", "ask", "disabled"] as const, { description: "Browser mode override" })),
+  detail: Type.Optional(StringEnum(["summary", "full"] as const, { description: "Output detail level (default summary for token efficiency)" })),
 });
-
-function maybeTruncate(text: string): string {
-  const truncation = truncateHead(text, { maxBytes: DEFAULT_MAX_BYTES, maxLines: DEFAULT_MAX_LINES });
-  if (!truncation.truncated) return truncation.content;
-  return `${truncation.content}\n\n[Output truncated: ${truncation.outputLines}/${truncation.totalLines} lines, ${formatSize(truncation.outputBytes)}/${formatSize(truncation.totalBytes)}]`;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-function summarizeSnippet(text: string, max = 360): string {
-  const normalized = text.replace(/\s+/g, " ").trim();
-  if (normalized.length <= max) return normalized;
-  return `${normalized.slice(0, max - 1)}…`;
-}
-
-function formatEngineLabel(engine?: string): string {
-  if (!engine) return "search engine";
-  if (engine === "duckduckgo") return "DuckDuckGo";
-  if (engine === "bing") return "Bing";
-  if (engine === "google") return "Google";
-  if (engine === "yahoo") return "Yahoo";
-  if (engine === "brave") return "Brave";
-  return engine;
-}
-
-function summarizeAttempts(attempts: Array<any> = []): string | undefined {
-  if (attempts.length === 0) return undefined;
-  return attempts
-    .map((attempt) => {
-      if (attempt?.blockedReason) return `${attempt.engine} blocked (${attempt.blockedReason})`;
-      if (attempt?.error) return `${attempt.engine} failed (${attempt.error})`;
-      return `${attempt.engine} ${attempt?.finalResults ?? 0} result(s)`;
-    })
-    .join(" -> ");
-}
-
-function blockedSummary(attempts: Array<any> = []): string | undefined {
-  if (attempts.length === 0) return undefined;
-  const hasAnyResults = attempts.some((attempt) => (attempt?.finalResults ?? 0) > 0);
-  if (hasAnyResults) return undefined;
-
-  const blockedAttempt = attempts.find((attempt) => attempt?.blockedReason);
-  if (!blockedAttempt?.blockedReason) return undefined;
-  return `${formatEngineLabel(blockedAttempt.engine)} blocked this query (${blockedAttempt.blockedReason})`;
-}
 
 async function resolveAskMode(mode: BrowserMode | undefined, ctx: ExtensionContext, signal?: AbortSignal): Promise<BrowserMode | undefined> {
   if (mode !== "ask") return mode;
@@ -84,48 +53,6 @@ async function resolveAskMode(mode: BrowserMode | undefined, ctx: ExtensionConte
   );
 
   return approved ? "headless" : "disabled";
-}
-
-function fallbackLabel(details: any): string | undefined {
-  const attempts = Array.isArray(details?.attempts) ? details.attempts : [];
-  const initialEngine = attempts[0]?.engine;
-  const finalEngine = details?.context?.engine?.id;
-  if (!initialEngine || !finalEngine || initialEngine === finalEngine) return undefined;
-  return `fallback from ${initialEngine}`;
-}
-
-function formatMetrics(metrics: Record<string, unknown> = {}): string {
-  const entries = Object.entries(metrics)
-    .filter(([, value]) => value !== undefined)
-    .map(([key, value]) => `${key}=${String(value)}`);
-  return entries.length > 0 ? ` [${entries.join(", ")}]` : "";
-}
-
-function formatDuration(durationMs?: number): string | undefined {
-  if (typeof durationMs !== "number") return undefined;
-  if (durationMs < 1000) return `${durationMs}ms`;
-  return `${(durationMs / 1000).toFixed(1)}s`;
-}
-
-function buildDebugSection(progressLog: Array<{ phase: string; message: string; metrics?: Record<string, unknown> }>, attempts: Array<any>): string[] {
-  const lines: string[] = [];
-  lines.push("## Debug log");
-  for (const entry of progressLog) {
-    lines.push(`- ${entry.phase}: ${entry.message}${formatMetrics(entry.metrics)}`);
-  }
-  if (attempts.length > 0) {
-    lines.push("", "## Attempt details");
-    for (const attempt of attempts) {
-      lines.push(`- engine=${attempt.engine} searchUrl=${attempt.searchUrl}`);
-      lines.push(`  httpResults=${attempt.httpResults} browserResults=${attempt.browserResults} finalResults=${attempt.finalResults} attemptedBrowserFallback=${attempt.attemptedBrowserFallback} usedBrowserFallback=${attempt.usedBrowserFallback}`);
-      if (attempt.durationMs) lines.push(`  duration=${attempt.durationMs}ms`);
-      if (attempt.blockedReason) lines.push(`  blocked=${attempt.blockedSource || "unknown"} (${attempt.blockedReason})`);
-      if (attempt.httpStatus) lines.push(`  httpStatus=${attempt.httpStatus}`);
-      if (attempt.pageTitle) lines.push(`  pageTitle=${attempt.pageTitle}`);
-      if (attempt.error) lines.push(`  error=${attempt.error}`);
-    }
-  }
-  return lines;
 }
 
 function getTextComponent(lastComponent: unknown): Text {
@@ -217,23 +144,9 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
           },
         );
 
-        const lines: string[] = [];
-        const attemptsSummary = summarizeAttempts(search.attempts);
-        const blockedMessage = blockedSummary(search.attempts);
-        const fallback = fallbackLabel(search);
-        lines.push(`# Search: ${search.query}`);
-        lines.push(`Context: browser=${search.context.browser.browserLabel}, engine=${search.context.engine.label}${fallback ? ` (${fallback})` : ""}, mode=${search.context.mode}, browserFallback=${search.usedBrowserFallback ? "yes" : "no"}`);
-        if (blockedMessage) {
-          lines.push(`Status: ${blockedMessage}`);
-        } else if (attemptsSummary && (search.attempts.length > 1 || search.attempts.some((attempt) => attempt.blockedReason || attempt.error))) {
-          lines.push(`Attempts: ${attemptsSummary}`);
-        }
-        lines.push("");
-        for (const result of search.results) {
-          lines.push(`${result.rank}. ${result.title}`);
-          lines.push(`   ${result.url}`);
-          if (result.snippet) lines.push(`   ${summarizeSnippet(result.snippet, 240)}`);
-        }
+        const detail: SearchDetailMode = params.detail ?? "lean";
+        let contentResults: Array<any> = [];
+        let contentSkippedMessage: string | undefined;
 
         if (params.includeContent && search.results.length > 0) {
           const config = loadConfig(ctx.cwd);
@@ -244,13 +157,12 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
           let completed = 0;
           const total = topResults.length;
 
-          lines.push("", "## Top result content");
           if (topResults.length === 0) {
-            lines.push(`Skipped content fetch: no results met relevance threshold (score >= ${minScore}).`);
+            contentSkippedMessage = `Skipped content fetch: no results met relevance threshold (score >= ${minScore}).`;
           }
 
-          const contentResults = await mapWithConcurrency(topResults, concurrency, async (result, index) => {
-            emitProgress(`Reading source ${index + 1}/${total}`, {
+          contentResults = await mapWithConcurrency(topResults, concurrency, async (result, index) => {
+            emitProgress(`Reading source ${index + 1}/${Math.max(total, 1)}`, {
               phase: "content",
               completed,
               total,
@@ -259,7 +171,7 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
             try {
               const content = await fetchContent(ctx.cwd, result.url, mode, {
                 signal,
-                onProgress: (progress) => emitProgress(`${index + 1}/${total}: ${progress.message}`, {
+                onProgress: (progress) => emitProgress(`${index + 1}/${Math.max(total, 1)}: ${progress.message}`, {
                   phase: "content",
                   subphase: progress.phase,
                   completed,
@@ -276,25 +188,32 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
               return { ok: false as const, result, error };
             }
           });
-
-          for (const item of contentResults) {
-            if (item.ok) {
-              lines.push(`### ${item.content.title}`);
-              lines.push(item.content.textExcerpt || item.content.markdown.slice(0, 500));
-            } else {
-              lines.push(`### ${item.result.title}`);
-              lines.push(`Failed to extract content: ${errorMessage(item.error)}`);
-            }
-          }
         }
 
-        if (params.debug) {
-          lines.push("", ...buildDebugSection(progressLog, search.attempts));
-        }
+        const text = formatSearchToolText({
+          search,
+          detail,
+          requestedMode: params.mode,
+          effectiveMode: mode || search.context.mode,
+          debug: params.debug,
+          progressLog,
+          contentResults,
+          contentSkippedMessage,
+        });
 
         return {
-          content: [{ type: "text", text: maybeTruncate(lines.join("\n")) }],
-          details: { ...search, requestedMode: params.mode, effectiveMode: mode || search.context.mode, debug: params.debug, progressLog },
+          content: [{ type: "text", text }],
+          details: {
+            ...search,
+            requestedMode: params.mode,
+            effectiveMode: mode || search.context.mode,
+            requestedDetail: params.detail,
+            effectiveDetail: detail,
+            debug: params.debug,
+            progressLog,
+            contentResults,
+            contentSkippedMessage,
+          },
         };
       } catch (error) {
         if (signal?.aborted || isAbortError(error)) {
@@ -312,6 +231,7 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
       text += theme.fg("accent", `“${summarizeSnippet(args.query, 96)}”`);
       if (args.engine) text += theme.fg("dim", ` · ${args.engine}`);
       if (args.mode) text += theme.fg("dim", ` · ${args.mode}`);
+      if (args.detail && args.detail !== "lean") text += theme.fg("dim", ` · ${args.detail}`);
       if (args.includeContent) text += theme.fg("warning", " · content");
       if (args.debug) text += theme.fg("warning", " · debug");
       textComponent.setText(text);
@@ -409,10 +329,10 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
             });
           },
         });
-        const body = [`# ${content.title}`, `URL: ${content.url}`, `Browser fallback: ${content.usedBrowserFallback ? "yes" : "no"}`, "", content.markdown].join("\n");
+        const detail: FetchDetailMode = params.detail ?? "summary";
         return {
-          content: [{ type: "text", text: maybeTruncate(body) }],
-          details: { ...content, requestedMode: params.mode, effectiveMode: mode || "auto" },
+          content: [{ type: "text", text: formatFetchToolText({ content, detail }) }],
+          details: { ...content, requestedMode: params.mode, effectiveMode: mode || "auto", requestedDetail: params.detail, effectiveDetail: detail },
         };
       } catch (error) {
         if (signal?.aborted || isAbortError(error)) {
@@ -429,6 +349,7 @@ export default function freeWebSearchExtension(pi: ExtensionAPI) {
       let text = theme.fg("toolTitle", theme.bold("free_fetch_content "));
       text += theme.fg("accent", summarizeSnippet(args.url, 100));
       if (args.mode) text += theme.fg("dim", ` · ${args.mode}`);
+      if (args.detail && args.detail !== "summary") text += theme.fg("dim", ` · ${args.detail}`);
       textComponent.setText(text);
       return textComponent;
     },
