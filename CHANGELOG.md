@@ -7,6 +7,22 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-03-26
+
+### Fixed
+- **Critical:** Blocked pages (403, 429, captcha, interstitials) now escalate to browser fallback instead of throwing immediately. Previously, `detectBlockedContentResponse()` caused an immediate error before the browser fallback path was ever reached.
+- Login-redirect detection: sites that return 200 but redirect to auth domains (`accounts.google.com`, `login.*`, `sso.*`, etc.) now trigger browser fallback instead of returning empty content.
+
+### Changed
+- HTTP fetch headers improved with standard browser signals (`Accept`, `Sec-Fetch-*`, `Cache-Control`, `Pragma`) to reduce bot detection on direct URL fetches.
+- Browser fallback logic extracted into a dedicated `fetchViaBrowser()` helper for cleaner control flow and single responsibility.
+- `FetchContentOptions` now supports `deps` injection for testing browser fallback in isolation (same pattern as the search orchestrator).
+
+### Added
+- **YouTube transcript extraction** via Innertube API — no API keys, no yt-dlp, no dependencies. When `fetchContent()` receives a YouTube URL, it extracts the video transcript using 3 HTTP requests (watch page → Innertube player API with ANDROID client → caption track XML). Falls back to video description when no captions are available.
+- 11 new tests covering blocked-page escalation, login-redirect detection, YouTube transcript extraction, and false-positive prevention (47 total, up from 36).
+- JSDoc comments differentiating `detectBlockedContentResponse` (content pages) from `detectBlockedSearchResponse` (search engine result pages).
+
 ## [0.3.0] - 2026-03-25
 
 ### Added
@@ -67,7 +83,8 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
   - startup status indicator
 - Initial tests for parser, ranking, detection, and content extraction.
 
-[Unreleased]: https://github.com/Albertobelleiro/pi-free-web-search/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Albertobelleiro/pi-free-web-search/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/Albertobelleiro/pi-free-web-search/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Albertobelleiro/pi-free-web-search/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Albertobelleiro/pi-free-web-search/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Albertobelleiro/pi-free-web-search/releases/tag/v0.1.0

@@ -1,6 +1,6 @@
 {
   "name": "pi-free-web-search",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Free, hybrid, browser-aware web search and content extraction package for Pi coding agent",
   "type": "module",
   "license": "MIT",

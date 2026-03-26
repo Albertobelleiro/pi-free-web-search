@@ -6,6 +6,7 @@ import { detectBrowser } from "../detection/browser";
 import { fetchPageHtmlViaBrowser } from "../search/browser";
 import type { BrowserMode, ExtractedContent, FreeWebSearchConfig } from "../types";
 import { throwIfAborted, withTimeout } from "../util/abort";
+import { isYouTubeUrl, fetchYouTubeTranscript } from "./youtube";
 
 // ---------------------------------------------------------------------------
 // Shared instances
@@ -285,6 +286,12 @@ export async function fetchContent(
   const emit = (phase: FetchContentProgress["phase"], message: string) => options.onProgress?.({ phase, message });
   const resolvedMode = mode || config.mode || "auto";
   const browserCanEscalate = isBrowserAllowed(resolvedMode);
+
+  // --- YouTube early return ----------------------------------------------
+
+  if (isYouTubeUrl(url)) {
+    return await fetchYouTubeTranscript(url, { signal: options.signal, onProgress: options.onProgress });
+  }
 
   // --- HTTP fetch --------------------------------------------------------
 

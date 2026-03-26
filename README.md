@@ -209,7 +209,7 @@ This repository includes the standard community health files and templates:
 
 ## Notes
 
-- v0.x focuses on normal web pages, not YouTube/PDF/GitHub-specialized extraction flows.
+- YouTube URLs automatically extract video transcripts via Innertube API (no API keys, no yt-dlp). Falls back to video description when no captions are available.
 - Browser and engine detection are best-effort and can be overridden in config.
 - Safari automation uses Playwright WebKit instead of directly controlling Safari binaries.
 - The package is authored and tested with Bun.

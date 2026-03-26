@@ -279,3 +279,125 @@ test("same-hostname response with login patterns is NOT flagged as login redirec
     globalThis.fetch = originalFetch;
   }
 });
+
+// ---------------------------------------------------------------------------
+// YouTube transcript extraction tests
+// ---------------------------------------------------------------------------
+
+const MOCK_WATCH_HTML = `<html><head><title>Test Video - YouTube</title></head><body><script>var ytInitialPlayerResponse = {};</script><script>{"INNERTUBE_API_KEY":"AIzaSyA_test_key_123"}</script></body></html>`;
+
+const MOCK_PLAYER_JSON = {
+  playabilityStatus: { status: "OK" },
+  videoDetails: {
+    videoId: "e_T-_dAcfGo",
+    title: "Test Video Title",
+    shortDescription: "This is the video description fallback text.",
+  },
+  captions: {
+    playerCaptionsTracklistRenderer: {
+      captionTracks: [
+        {
+          baseUrl: "https://www.youtube.com/api/timedtext?v=e_T-_dAcfGo&lang=en",
+          languageCode: "en",
+          kind: "",
+          name: { simpleText: "English" },
+        },
+      ],
+    },
+  },
+};
+
+const MOCK_TRANSCRIPT_XML = `<?xml version="1.0" encoding="utf-8"?><transcript><text start="0.0" dur="2.5">Hello everyone</text><text start="2.5" dur="3.0">welcome to the video</text><text start="5.5" dur="2.0">let&apos;s get started</text></transcript>`;
+
+function mockYouTubeFetch(overrides?: { playerJson?: any; watchHtml?: string }) {
+  return async (input: string | URL | Request, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+
+    if (url.includes("youtube.com/watch")) {
+      return new Response(overrides?.watchHtml ?? MOCK_WATCH_HTML, {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      });
+    }
+    if (url.includes("youtubei/v1/player")) {
+      return new Response(JSON.stringify(overrides?.playerJson ?? MOCK_PLAYER_JSON), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (url.includes("timedtext") || url.includes("api/timedtext")) {
+      return new Response(MOCK_TRANSCRIPT_XML, {
+        status: 200,
+        headers: { "content-type": "text/xml" },
+      });
+    }
+    return new Response("Not found", { status: 404 });
+  };
+}
+
+test("extracts YouTube transcript from video URL", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = mockYouTubeFetch() as any;
+  try {
+    const content = await fetchContent(process.cwd(), "https://www.youtube.com/watch?v=e_T-_dAcfGo", "disabled");
+    expect(content.title).toBe("Test Video Title");
+    expect(content.markdown).toContain("Hello everyone");
+    expect(content.markdown).toContain("welcome to the video");
+    expect(content.markdown).toContain("let's get started");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("extracts YouTube transcript from youtu.be short URL", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = mockYouTubeFetch() as any;
+  try {
+    const content = await fetchContent(process.cwd(), "https://youtu.be/e_T-_dAcfGo", "disabled");
+    expect(content.title).toBe("Test Video Title");
+    expect(content.markdown).toContain("Hello everyone");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("falls back to video description when no captions available", async () => {
+  const originalFetch = globalThis.fetch;
+  const noCaptionsPlayer = {
+    ...MOCK_PLAYER_JSON,
+    captions: undefined,
+  };
+  globalThis.fetch = mockYouTubeFetch({ playerJson: noCaptionsPlayer }) as any;
+  try {
+    const content = await fetchContent(process.cwd(), "https://www.youtube.com/watch?v=e_T-_dAcfGo", "disabled");
+    expect(content.markdown).toContain("This is the video description fallback text.");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("throws on rate-limited YouTube response", async () => {
+  const originalFetch = globalThis.fetch;
+  const recaptchaHtml = `<html><body><div class="g-recaptcha"></div></body></html>`;
+  globalThis.fetch = mockYouTubeFetch({ watchHtml: recaptchaHtml }) as any;
+  try {
+    await expect(
+      fetchContent(process.cwd(), "https://www.youtube.com/watch?v=e_T-_dAcfGo", "disabled"),
+    ).rejects.toThrow("YouTube rate limited");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("returns ExtractedContent with usedBrowserFallback=false", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = mockYouTubeFetch() as any;
+  try {
+    const content = await fetchContent(process.cwd(), "https://www.youtube.com/watch?v=e_T-_dAcfGo", "disabled");
+    expect(content.usedBrowserFallback).toBe(false);
+    expect(content.url).toBe("https://www.youtube.com/watch?v=e_T-_dAcfGo");
+    expect(content.textExcerpt).toBeTruthy();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
